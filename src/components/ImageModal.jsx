@@ -1,11 +1,20 @@
 import { useEffect } from 'react';
-import { X, Download } from 'lucide-react';
+import { X, Download, Search, Camera, Zap, Upload } from 'lucide-react';
 import { downloadImage, createFilename } from '../utils/imageUtils';
 
 /**
  * Full-screen image preview modal
  */
-export default function ImageModal({ isOpen, image, title, onClose }) {
+export default function ImageModal({ 
+  isOpen, 
+  image, 
+  title, 
+  onClose,
+  onSendToAnalyze,
+  onSendToEdit,
+  onSendToCombine,
+  onSendToMultiEdit
+}) {
   // Close on ESC key
   useEffect(() => {
     const handleEsc = (e) => {
@@ -22,6 +31,30 @@ export default function ImageModal({ isOpen, image, title, onClose }) {
   const handleDownload = (e) => {
     e.stopPropagation();
     downloadImage(image, createFilename('image'));
+  };
+
+  const handleSendToAnalyze = (e) => {
+    e.stopPropagation();
+    onSendToAnalyze?.(image);
+    onClose();
+  };
+
+  const handleSendToEdit = (e) => {
+    e.stopPropagation();
+    onSendToEdit?.(image);
+    onClose();
+  };
+
+  const handleSendToCombine = (e) => {
+    e.stopPropagation();
+    onSendToCombine?.(image);
+    onClose();
+  };
+
+  const handleSendToMultiEdit = (e) => {
+    e.stopPropagation();
+    onSendToMultiEdit?.(image);
+    onClose();
   };
 
   return (
@@ -53,9 +86,42 @@ export default function ImageModal({ isOpen, image, title, onClose }) {
 
         {/* Modal Footer */}
         <div className="mt-4 text-center">
+          {/* Send to Mode Buttons */}
+          <div className="flex flex-wrap gap-2 justify-center mb-3">
+            <button
+              onClick={handleSendToAnalyze}
+              className="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Search className="w-4 h-4" />
+              Send to Analyze
+            </button>
+            <button
+              onClick={handleSendToEdit}
+              className="bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Camera className="w-4 h-4" />
+              Send to Editor
+            </button>
+            <button
+              onClick={handleSendToCombine}
+              className="bg-purple-500 hover:bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Zap className="w-4 h-4" />
+              Send to Generator
+            </button>
+            <button
+              onClick={handleSendToMultiEdit}
+              className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Upload className="w-4 h-4" />
+              Send to Multi-Edit
+            </button>
+          </div>
+          
+          {/* Download Button */}
           <button
             onClick={handleDownload}
-            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center gap-2 mx-auto"
+            className="bg-slate-700 hover:bg-slate-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors flex items-center gap-2 mx-auto"
           >
             <Download className="w-5 h-5" />
             Download Full Size

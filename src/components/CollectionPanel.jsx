@@ -107,41 +107,49 @@ export default function CollectionPanel({
               {collection.map((img) => (
                 <div
                   key={img.id}
-                  className="relative group aspect-square rounded-lg overflow-hidden border border-slate-600 hover:border-blue-500 transition-colors"
+                  className="relative group rounded-lg overflow-hidden border border-slate-600 hover:border-blue-500 transition-colors flex items-center justify-center bg-slate-900/50"
+                  style={{ minHeight: '80px' }}
                 >
                   <img
                     src={img.preview}
                     alt={img.fileName}
-                    className="w-full h-full object-cover cursor-pointer"
+                    className="w-full h-auto object-contain cursor-pointer"
                     onClick={() => onImageClick(img.preview, img.fileName)}
                     title={img.fileName}
                   />
                   
                   {/* Overlay with actions */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1">
-                    {useHandler && (
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                    {/* Top right corner buttons */}
+                    <div className="absolute top-1 right-1 flex flex-col gap-1">
                       <button
-                        onClick={() => useHandler(img)}
-                        className="bg-green-500 hover:bg-green-600 text-white p-1 rounded text-xs w-full flex items-center justify-center gap-1"
-                        title={getUseLabel()}
+                        onClick={() => onRemove(img.id)}
+                        className="bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full shadow-lg transition-all hover:scale-110 pointer-events-auto"
+                        title="Remove from collection"
                       >
-                        <Plus className="w-3 h-3" />
+                        <X className="w-3 h-3" />
                       </button>
+                      <button
+                        onClick={() => onDownload(img)}
+                        className="bg-blue-500/80 hover:bg-blue-500 text-white p-1.5 rounded-full shadow-md transition-all hover:scale-110 pointer-events-auto"
+                        title="Download"
+                      >
+                        <Download className="w-3 h-3" />
+                      </button>
+                    </div>
+                    
+                    {/* Center add button */}
+                    {useHandler && (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <button
+                          onClick={() => useHandler(img)}
+                          className="bg-green-500 hover:bg-green-600 text-white p-1.5 rounded-lg shadow-md transition-all hover:scale-105 pointer-events-auto"
+                          title={getUseLabel()}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
                     )}
-                    <button
-                      onClick={() => onDownload(img)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded text-xs w-full flex items-center justify-center gap-1"
-                      title="Download"
-                    >
-                      <Download className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={() => onRemove(img.id)}
-                      className="bg-red-500 hover:bg-red-600 text-white p-1 rounded text-xs w-full flex items-center justify-center gap-1"
-                      title="Remove"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
                   </div>
                 </div>
               ))}

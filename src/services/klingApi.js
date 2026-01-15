@@ -15,7 +15,8 @@ const PIAPI_BASE_URL = 'https://api.piapi.ai/api/v1';
  * @param {string} params.aspectRatio - Aspect ratio (e.g., '16:9')
  * @param {string} params.mode - 'std' or 'pro'
  * @param {string} params.version - Kling model version
- * @param {string} params.imageBase64 - Optional base64 image for image-to-video
+ * @param {string} params.imageBase64 - Optional base64 image for start frame
+ * @param {string} params.endImageBase64 - Optional base64 image for end frame (v2.5 only)
  * @param {boolean} params.enableAudio - Enable audio (v2.6+ pro mode only)
  * @returns {Promise<string>} - Task ID
  */
@@ -28,6 +29,7 @@ export const startVideoGeneration = async ({
   mode = 'std',
   version = '2.6',
   imageBase64 = null,
+  endImageBase64 = null,
   enableAudio = false
 }) => {
   const input = {
@@ -40,9 +42,14 @@ export const startVideoGeneration = async ({
     version
   };
 
-  // If we have an image, it's image-to-video
+  // If we have a start image, it's image-to-video
   if (imageBase64) {
     input.image_url = `data:image/jpeg;base64,${imageBase64}`;
+  }
+
+  // If we have an end image for Kling 2.5, add it
+  if (version === '2.5' && endImageBase64) {
+    input.end_image_url = `data:image/jpeg;base64,${endImageBase64}`;
   }
 
   // Enable audio for v2.6+ in pro mode

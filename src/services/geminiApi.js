@@ -181,3 +181,74 @@ export const buildImageConfig = ({ aspectRatio, resolution }) => {
   }
   return config;
 };
+
+/**
+ * Generate an image-to-prompt using Gemini
+ * Analyzes an image and generates a prompt for image/video generation
+ * @param {string} apiKey - Gemini API key
+ * @param {string} imageBase64 - Base64 encoded image (with or without data URL prefix)
+ * @param {string} userInstruction - Optional user instruction for customization
+ * @param {string} systemPrompt - System prompt (photo or video mode)
+ * @param {string} modelProfile - Optional model profile block
+ * @returns {Promise<string>} - Generated prompt text
+ */
+export const generateImagePrompt = async (apiKey, imageBase64, userInstruction, systemPrompt, modelProfile) => {
+  // Build the user message
+  let userMessage = '';
+  
+  // Add model profile if provided
+  if (modelProfile) {
+    userMessage += modelProfile + '\n\n';
+  }
+  
+  // Add task instruction
+  userMessage += 'TASK:\n' + (userInstruction || 'Generate a detailed prompt based on this image.');
+  
+  // Extract base64 data (remove data URL prefix if present)
+  const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+  
+  const response = await fetch(
+    `${GEMINI_BASE_URL}/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              { text: userMessage },
+              {
+                inline_data: {
+                  mime_type: 'image/jpeg',
+                  data: base64Data
+                }
+              }
+            ]
+          }
+        ],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || `Gemini API error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  // Extract text from response
+  const textPart = data.candidates?.[0]?.content?.parts?.find(p => p.text);
+  if (textPart?.text) {
+    return textPart.text;
+  }
+  
+  throw new Error('No text response from API');
+};

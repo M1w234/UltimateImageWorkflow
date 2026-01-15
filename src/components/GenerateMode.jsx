@@ -211,7 +211,7 @@ export default function GenerateMode({
                   value={slot.prompt}
                   onChange={(e) => updateSlot(index, { prompt: e.target.value })}
                   placeholder="Describe the image you want to generate..."
-                  className="w-full bg-slate-900 text-white rounded-lg p-3 border border-slate-600 focus:border-amber-500 focus:outline-none resize-none h-24 text-sm"
+                  className="w-full bg-slate-900 text-white rounded-lg p-3 border border-slate-600 focus:border-amber-500 focus:outline-none resize-none h-32 text-sm"
                 />
 
                 <div className="flex gap-3 flex-wrap">
@@ -287,27 +287,30 @@ export default function GenerateMode({
                   <div className="flex gap-2 flex-wrap">
                     {slot.results.map((result, resIdx) => (
                       <div key={resIdx} className="relative group">
-                        <img
-                          src={result}
-                          alt={`Generated ${resIdx + 1}`}
-                          className="w-24 h-24 object-cover rounded-lg border border-slate-600 cursor-pointer hover:border-green-500"
-                          onClick={() => onImageClick(result, `Generated ${resIdx + 1}`)}
-                        />
-                        <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => addResultToCollection(result, index, resIdx)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded"
-                            title="Add to collection"
-                          >
-                            <Plus className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => handleDownload(index, resIdx)}
-                            className="bg-green-500 hover:bg-green-600 text-white p-1 rounded"
-                            title="Download"
-                          >
-                            <Download className="w-3 h-3" />
-                          </button>
+                        <div className="relative flex items-center justify-center bg-slate-900/50 rounded-lg" style={{ minHeight: '96px' }}>
+                          <img
+                            src={result}
+                            alt={`Generated ${resIdx + 1}`}
+                            className="h-24 object-contain rounded-lg border border-slate-600 cursor-pointer hover:border-green-500"
+                            style={{ maxWidth: '150px' }}
+                            onClick={() => onImageClick(result, `Generated ${resIdx + 1}`)}
+                          />
+                          <div className="absolute bottom-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => addResultToCollection(result, index, resIdx)}
+                              className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded"
+                              title="Add to collection"
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleDownload(index, resIdx)}
+                              className="bg-green-500 hover:bg-green-600 text-white p-1 rounded"
+                              title="Download"
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}

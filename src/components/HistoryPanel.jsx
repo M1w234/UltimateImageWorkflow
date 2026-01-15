@@ -146,46 +146,52 @@ export default function HistoryPanel({
                   {/* Images */}
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {entry.sourceImage && (
-                      <div className="flex-shrink-0 group relative">
+                      <div className="flex-shrink-0 group relative flex flex-col">
                         <p className="text-slate-500 text-xs mb-1">Source</p>
-                        <img
-                          src={entry.sourceImage}
-                          alt="Source"
-                          className="h-16 w-16 object-cover rounded border border-slate-600 cursor-pointer hover:border-blue-500 transition-colors"
-                          onClick={() => onImageClick(entry.sourceImage, 'Source Image')}
-                        />
-                        <button
-                          onClick={() =>
-                            downloadImage(entry.sourceImage, 'source', 0)
-                          }
-                          className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Download className="w-2.5 h-2.5" />
-                        </button>
+                        <div className="relative flex items-center justify-center bg-slate-900/50 rounded border border-slate-600" style={{ minHeight: '64px', minWidth: '50px' }}>
+                          <img
+                            src={entry.sourceImage}
+                            alt="Source"
+                            className="h-16 object-contain rounded cursor-pointer hover:border-blue-500 transition-colors"
+                            style={{ maxWidth: '100px' }}
+                            onClick={() => onImageClick(entry.sourceImage, 'Source Image')}
+                          />
+                          <button
+                            onClick={() =>
+                              downloadImage(entry.sourceImage, 'source', 0)
+                            }
+                            className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Download className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
                       </div>
                     )}
                     {entry.results &&
                       entry.results.map((result, idx) => (
-                        <div key={idx} className="flex-shrink-0 group relative">
+                        <div key={idx} className="flex-shrink-0 group relative flex flex-col">
                           <p className="text-slate-500 text-xs mb-1">
                             Result {idx + 1}
                           </p>
-                          <img
-                            src={result}
-                            alt={`Result ${idx + 1}`}
-                            className="h-16 w-16 object-cover rounded border border-slate-600 cursor-pointer hover:border-green-500 transition-colors"
-                            onClick={() =>
-                              onImageClick(result, `Result ${idx + 1}`)
-                            }
-                          />
-                          <button
-                            onClick={() =>
-                              downloadImage(result, `history-${entry.id}`, idx)
-                            }
-                            className="absolute bottom-0 right-0 bg-green-500 hover:bg-green-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Download className="w-2.5 h-2.5" />
-                          </button>
+                          <div className="relative flex items-center justify-center bg-slate-900/50 rounded border border-slate-600" style={{ minHeight: '64px', minWidth: '50px' }}>
+                            <img
+                              src={result}
+                              alt={`Result ${idx + 1}`}
+                              className="h-16 object-contain rounded cursor-pointer hover:border-green-500 transition-colors"
+                              style={{ maxWidth: '100px' }}
+                              onClick={() =>
+                                onImageClick(result, `Result ${idx + 1}`)
+                              }
+                            />
+                            <button
+                              onClick={() =>
+                                downloadImage(result, `history-${entry.id}`, idx)
+                              }
+                              className="absolute bottom-0 right-0 bg-green-500 hover:bg-green-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              <Download className="w-2.5 h-2.5" />
+                            </button>
+                          </div>
                         </div>
                       ))}
                   </div>

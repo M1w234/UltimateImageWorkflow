@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Zap,
   Upload,
@@ -23,7 +23,10 @@ export default function CombineMode({
   onAddToCollection,
   onAddToHistory,
   onImageClick,
-  playChime
+  playChime,
+  // Pending image transfer
+  pendingImage,
+  onClearPendingImage
 }) {
   // Slots array for combining images
   const [slots, setSlots] = useState([
@@ -42,6 +45,19 @@ export default function CombineMode({
   const [visibleSlots, setVisibleSlots] = useState(1);
   const [dragActive, setDragActive] = useState({});
   const fileInputRefs = useRef({});
+
+  // Handle pending image transfer
+  useEffect(() => {
+    if (pendingImage && slots[0].images.length < MAX_IMAGES_PER_SLOT) {
+      addImageToSlot(0, {
+        id: generateUniqueId(),
+        base64: pendingImage,
+        preview: pendingImage,
+        fileName: 'from-preview.jpg'
+      });
+      onClearPendingImage?.();
+    }
+  }, [pendingImage]);
 
   // Update a slot
   const updateSlot = (index, updates) => {
@@ -270,13 +286,6 @@ export default function CombineMode({
 
   return (
     <div className="space-y-6">
-      <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-4">
-        <p className="text-purple-300 text-sm">
-          <strong>Multi-Image Generator:</strong> Upload multiple reference images and combine them 
-          into a single output using AI. Great for style mixing, character merging, or creating composites!
-        </p>
-      </div>
-
       {/* Slots */}
       <div className="space-y-6">
         {slots.slice(0, visibleSlots).map((slot, index) => (
@@ -312,12 +321,18 @@ export default function CombineMode({
               className={`border-2 border-dashed rounded-lg p-4 mb-4 transition-colors ${
                 dragActive[index]
                   ? 'border-purple-500 bg-purple-500/10'
-                  : 'border-slate-600'
-              }`}
+                  : 'border-slate-600 hover:border-purple-500/50'
+              } ${slot.images.length === 0 ? 'cursor-pointer' : ''}`}
               onDragEnter={(e) => handleDrag(index, e)}
               onDragLeave={(e) => handleDrag(index, e)}
               onDragOver={(e) => handleDrag(index, e)}
               onDrop={(e) => handleDrop(index, e)}
+              onClick={(e) => {
+                // Only trigger file input if empty and not clicking on a button/image
+                if (slot.images.length === 0 && e.target.tagName !== 'BUTTON' && e.target.tagName !== 'IMG') {
+                  fileInputRefs.current[index]?.click();
+                }
+              }}
             >
               <input
                 type="file"
@@ -336,26 +351,35 @@ export default function CombineMode({
                   <div className="flex gap-2 flex-wrap">
                     {slot.images.map((img, imgIdx) => (
                       <div key={img.id} className="relative group">
-                        <img
-                          src={img.preview}
-                          alt={img.fileName}
-                          className="w-20 h-20 object-cover rounded-lg border border-slate-600 cursor-pointer hover:border-purple-500"
-                          onClick={() => onImageClick(img.preview, img.fileName)}
-                        />
-                        <button
-                          onClick={() => removeImageFromSlot(index, imgIdx)}
-                          className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                        <span className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1 rounded">
-                          {imgIdx + 1}
-                        </span>
+                        <div className="relative flex items-center justify-center bg-slate-900/50 rounded-lg border border-slate-600" style={{ minHeight: '80px', minWidth: '60px' }}>
+                          <img
+                            src={img.preview}
+                            alt={img.fileName}
+                            className="h-20 object-contain rounded-lg cursor-pointer hover:border-purple-500"
+                            style={{ maxWidth: '120px' }}
+                            onClick={() => onImageClick(img.preview, img.fileName)}
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeImageFromSlot(index, imgIdx);
+                            }}
+                            className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                          <span className="absolute bottom-1 left-1 bg-black/60 text-white text-xs px-1 rounded">
+                            {imgIdx + 1}
+                          </span>
+                        </div>
                       </div>
                     ))}
                     {slot.images.length < MAX_IMAGES_PER_SLOT && (
                       <button
-                        onClick={() => fileInputRefs.current[index]?.click()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRefs.current[index]?.click();
+                        }}
                         className="w-20 h-20 border-2 border-dashed border-slate-600 rounded-lg flex items-center justify-center hover:border-purple-500 transition-colors"
                       >
                         <Plus className="w-6 h-6 text-slate-500" />
@@ -366,12 +390,9 @@ export default function CombineMode({
               ) : (
                 <div className="text-center py-4">
                   <Upload className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-                  <button
-                    onClick={() => fileInputRefs.current[index]?.click()}
-                    className="text-purple-400 hover:text-purple-300 text-sm"
-                  >
+                  <div className="text-purple-400 text-sm">
                     Click or drop images here
-                  </button>
+                  </div>
                   <p className="text-slate-500 text-xs mt-1">
                     Add 2 or more images to combine
                   </p>
@@ -385,7 +406,7 @@ export default function CombineMode({
                 value={slot.prompt}
                 onChange={(e) => updateSlot(index, { prompt: e.target.value })}
                 placeholder="Describe how to combine these images... e.g., 'Create a portrait combining the style of image 1 with the subject in image 2'"
-                className="w-full bg-slate-900 text-white rounded-lg p-3 border border-slate-600 focus:border-purple-500 focus:outline-none resize-none h-24 text-sm"
+                className="w-full bg-slate-900 text-white rounded-lg p-3 border border-slate-600 focus:border-purple-500 focus:outline-none resize-none h-32 text-sm"
               />
 
               <div className="flex gap-3 flex-wrap">
@@ -471,18 +492,21 @@ export default function CombineMode({
                 <div className="flex gap-3 flex-wrap">
                   {slot.results.map((result, resIdx) => (
                     <div key={resIdx} className="relative group">
-                      <img
-                        src={result}
-                        alt={`Combined ${resIdx + 1}`}
-                        className="w-32 h-32 object-cover rounded-lg border border-slate-600 cursor-pointer hover:border-green-500"
-                        onClick={() => onImageClick(result, `Combined Result ${resIdx + 1}`)}
-                      />
-                      <button
-                        onClick={() => handleDownload(index, resIdx)}
-                        className="absolute bottom-1 right-1 bg-green-500 hover:bg-green-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <Download className="w-4 h-4" />
-                      </button>
+                      <div className="relative flex items-center justify-center bg-slate-900/50 rounded-lg" style={{ minHeight: '100px' }}>
+                        <img
+                          src={result}
+                          alt={`Combined ${resIdx + 1}`}
+                          className="h-32 object-contain rounded-lg border border-slate-600 cursor-pointer hover:border-green-500"
+                          style={{ maxWidth: '200px' }}
+                          onClick={() => onImageClick(result, `Combined Result ${resIdx + 1}`)}
+                        />
+                        <button
+                          onClick={() => handleDownload(index, resIdx)}
+                          className="absolute bottom-1 right-1 bg-green-500 hover:bg-green-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Download className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

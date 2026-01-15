@@ -94,6 +94,10 @@ export default function App() {
   const [modalImage, setModalImage] = useState(null);
   const [modalTitle, setModalTitle] = useState('');
 
+  // Pending image transfer
+  const [pendingImage, setPendingImage] = useState(null);
+  const [pendingMode, setPendingMode] = useState(null);
+
   // ========================================
   // INITIALIZATION
   // ========================================
@@ -386,6 +390,36 @@ export default function App() {
     setMode('video');
   };
 
+  // Send image to different modes from modal
+  const sendToAnalyze = (imageUrl) => {
+    setPendingImage(imageUrl);
+    setPendingMode('analyze');
+    setMode('analyze');
+  };
+
+  const sendToEdit = (imageUrl) => {
+    setPendingImage(imageUrl);
+    setPendingMode('edit');
+    setMode('edit');
+  };
+
+  const sendToCombine = (imageUrl) => {
+    setPendingImage(imageUrl);
+    setPendingMode('combine');
+    setMode('combine');
+  };
+
+  const sendToMultiEdit = (imageUrl) => {
+    setPendingImage(imageUrl);
+    setPendingMode('multi');
+    setMode('multi');
+  };
+
+  const clearPendingImage = () => {
+    setPendingImage(null);
+    setPendingMode(null);
+  };
+
   // ========================================
   // ANALYSIS HISTORY HANDLERS
   // ========================================
@@ -595,12 +629,34 @@ export default function App() {
               Video
             </button>
           </div>
+
+          {/* Mode Descriptions */}
+          {mode === 'analyze' && (
+            <p className="text-slate-400 text-center mt-4">
+              Generate a detailed prompt for still image generation
+            </p>
+          )}
+          {mode === 'combine' && (
+            <p className="text-slate-400 text-center mt-4">
+              Upload multiple reference images and combine them into a single output using AI. Great for style mixing, character merging, or creating composites!
+            </p>
+          )}
+          {mode === 'multi' && (
+            <p className="text-slate-400 text-center mt-4">
+              Upload multiple images and apply the same edits to all of them
+            </p>
+          )}
+          {mode === 'video' && (
+            <p className="text-slate-400 text-center mt-4">
+              Generate AI videos using Kling AI. Create multiple videos simultaneously with independent prompts and settings.
+            </p>
+          )}
         </div>
 
         {/* Main Content */}
         <div className="bg-slate-800 rounded-2xl shadow-2xl p-6 border border-slate-700">
           {/* Analyze Mode */}
-          {mode === 'analyze' && (
+          <div style={{ display: mode === 'analyze' ? 'block' : 'none' }}>
             <AnalyzeMode
               openaiKey={openaiKey}
               openaiModel={openaiModel}
@@ -612,11 +668,13 @@ export default function App() {
               onClearAnalysisHistory={clearAnalysisHistory}
               onTransferToEditor={transferToEditor}
               onImageClick={openImageModal}
+              pendingImage={pendingMode === 'analyze' ? pendingImage : null}
+              onClearPendingImage={clearPendingImage}
             />
-          )}
+          </div>
 
           {/* Edit Mode */}
-          {mode === 'edit' && (
+          <div style={{ display: mode === 'edit' ? 'block' : 'none' }}>
             <EditMode
               apiKey={apiKey}
               selectedModel={selectedModel}
@@ -625,11 +683,20 @@ export default function App() {
               onAddToHistory={addToHistory}
               onImageClick={openImageModal}
               playChime={handlePlayChime}
+              collection={uploadedCollection}
+              collectionOpen={collectionOpen}
+              onCollectionToggle={() => setCollectionOpen(!collectionOpen)}
+              onDownloadFromCollection={downloadFromCollection}
+              onDownloadAllFromCollection={downloadAllFromCollection}
+              onClearCollection={clearCollection}
+              onRemoveFromCollection={removeFromCollection}
+              pendingImage={pendingMode === 'edit' ? pendingImage : null}
+              onClearPendingImage={clearPendingImage}
             />
-          )}
+          </div>
 
           {/* Generate Mode */}
-          {mode === 'generate' && (
+          <div style={{ display: mode === 'generate' ? 'block' : 'none' }}>
             <GenerateMode
               apiKey={apiKey}
               selectedModel={selectedModel}
@@ -639,10 +706,10 @@ export default function App() {
               onImageClick={openImageModal}
               playChime={handlePlayChime}
             />
-          )}
+          </div>
 
           {/* Multi-Edit Mode */}
-          {mode === 'multi' && (
+          <div style={{ display: mode === 'multi' ? 'block' : 'none' }}>
             <MultiEditMode
               apiKey={apiKey}
               selectedModel={selectedModel}
@@ -651,11 +718,13 @@ export default function App() {
               onAddToHistory={addToHistory}
               onImageClick={openImageModal}
               playChime={handlePlayChime}
+              pendingImage={pendingMode === 'multi' ? pendingImage : null}
+              onClearPendingImage={clearPendingImage}
             />
-          )}
+          </div>
 
           {/* Combine Mode */}
-          {mode === 'combine' && (
+          <div style={{ display: mode === 'combine' ? 'block' : 'none' }}>
             <CombineMode
               apiKey={apiKey}
               selectedModel={selectedModel}
@@ -664,38 +733,44 @@ export default function App() {
               onAddToHistory={addToHistory}
               onImageClick={openImageModal}
               playChime={handlePlayChime}
+              pendingImage={pendingMode === 'combine' ? pendingImage : null}
+              onClearPendingImage={clearPendingImage}
             />
-          )}
+          </div>
 
           {/* Video Mode */}
-          {mode === 'video' && (
+          <div style={{ display: mode === 'video' ? 'block' : 'none' }}>
             <KlingMode
               klingKey={klingKey}
               klingModel={klingModel}
+              onKlingModelChange={handleSaveKlingModel}
+              klingModels={KLING_MODELS}
               onOpenSettings={() => setSettingsOpen(true)}
               onAddToCollection={addToCollection}
               onImageClick={openImageModal}
               playChime={handlePlayChime}
             />
-          )}
+          </div>
 
-          {/* Collection Panel */}
-          <CollectionPanel
-            collection={uploadedCollection}
-            isOpen={collectionOpen}
-            onToggle={() => setCollectionOpen(!collectionOpen)}
-            onClear={clearCollection}
-            onRemove={removeFromCollection}
-            onDownload={downloadFromCollection}
-            onDownloadAll={downloadAllFromCollection}
-            onImageClick={openImageModal}
-            onUseForBatch={useFromCollectionForBatch}
-            onUseForMulti={useFromCollectionForMulti}
-            onUseForCombine={useFromCollectionForCombine}
-            onUseForAnalyze={useFromCollectionForAnalyze}
-            onSendToVideo={sendImageToVideo}
-            currentMode={mode}
-          />
+          {/* Collection Panel - Hide in edit mode since it has its own */}
+          {mode !== 'edit' && (
+            <CollectionPanel
+              collection={uploadedCollection}
+              isOpen={collectionOpen}
+              onToggle={() => setCollectionOpen(!collectionOpen)}
+              onClear={clearCollection}
+              onRemove={removeFromCollection}
+              onDownload={downloadFromCollection}
+              onDownloadAll={downloadAllFromCollection}
+              onImageClick={openImageModal}
+              onUseForBatch={useFromCollectionForBatch}
+              onUseForMulti={useFromCollectionForMulti}
+              onUseForCombine={useFromCollectionForCombine}
+              onUseForAnalyze={useFromCollectionForAnalyze}
+              onSendToVideo={sendImageToVideo}
+              currentMode={mode}
+            />
+          )}
 
           {/* History Panel */}
           <HistoryPanel
@@ -722,6 +797,10 @@ export default function App() {
         image={modalImage}
         title={modalTitle}
         onClose={closeModal}
+        onSendToAnalyze={sendToAnalyze}
+        onSendToEdit={sendToEdit}
+        onSendToCombine={sendToCombine}
+        onSendToMultiEdit={sendToMultiEdit}
       />
 
       {/* API Key Settings Modal */}

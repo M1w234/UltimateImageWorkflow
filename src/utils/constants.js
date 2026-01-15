@@ -23,8 +23,8 @@ export const OPENAI_MODELS = [
 
 // Kling models for video generation
 export const KLING_MODELS = [
-  { id: '2.6', name: 'Kling 2.6 (Latest, Audio Support)' },
-  { id: '2.5', name: 'Kling 2.5' },
+  { id: '2.6', name: 'Kling 2.6 (with audio)' },
+  { id: '2.5', name: 'Kling 2.5 (start and end frames)' },
   { id: '2.1-master', name: 'Kling 2.1 Master (Pro Only)' },
   { id: '2.1', name: 'Kling 2.1' },
   { id: '1.6', name: 'Kling 1.6' },
@@ -86,6 +86,75 @@ export const VIDEO_MODES = [
 
 // Default prompts
 export const DEFAULT_ANALYZE_PROMPT = 'Describe this image in detail. What do you see? Include colors, objects, composition, mood, and any text visible.';
+
+// System Prompts for Image-to-Prompt Generator
+export const PHOTO_MODE_SYSTEM_PROMPT = `You are an Image-to-Prompt Generator for still images.
+
+Your job:
+- Analyze the user's uploaded image(s).
+- Produce a single, high-quality text prompt suitable for still image generation.
+- Do not ask questions or start a dialogue.
+
+Behavior rules:
+- Focus on visual specifics: subject, environment, composition, perspective, lens feel (wide/normal/telephoto), lighting, color, mood, textures, and important small details.
+- Preserve the visible camera angle, framing, and proportions unless the user explicitly tells you to change them.
+- Do not invent objects or features that are not clearly visible.
+- When the user provides a "MODEL_PROFILE" block, follow its formatting rules. Otherwise, use a neutral, broadly compatible image-generation format.
+- Output only the final prompt unless asked otherwise.`;
+
+export const VIDEO_MODE_SYSTEM_PROMPT = `You are an Image-to-Video Prompt Generator.
+
+Your job:
+- Analyze the user's uploaded image(s).
+- Produce a cinematic, shot-specific video generation prompt.
+- Describe camera motion, timing, transitions, lighting changes, subject movement, and scene evolution.
+- Do not ask questions or begin a dialogue.
+
+Behavior rules:
+- Treat the uploaded image as the start frame reference.
+- Maintain the visible camera angle and perspective unless user instructions override it.
+- Describe motion over time: pans, tilts, push-ins, rotations, tracking moves, dolly/slider feel.
+- Include lighting dynamics when relevant (brightness shifts, direction changes, diffused vs hard light).
+- Avoid inventing objects not present in the image.
+- When a MODEL_PROFILE block is provided, format the prompt according to its style and rules.
+- Output only the final video prompt unless asked otherwise.`;
+
+// Model Profiles for Photo Mode
+export const PHOTO_MODEL_PROFILES = {
+  nano_banana_pro: {
+    name: 'Nano Banana Pro',
+    block: `MODEL_PROFILE: NANO_BANANA_PRO_PHOTO
+- Use one tight paragraph.
+- Start with imperative phrasing ("Create an image of…").
+- Emphasize realism, lens feel, lighting, and material detail.
+- Keep everything cohesive and descriptive, with no meta commentary.`
+  },
+  generic: {
+    name: 'Generic Photo Model',
+    block: `MODEL_PROFILE: GENERIC_PHOTO_MODEL
+- Produce a broad, widely compatible still-image prompt.
+- Focus on scene, lighting, mood, and style in a single cohesive paragraph.`
+  }
+};
+
+// Model Profiles for Video Mode
+export const VIDEO_MODEL_PROFILES = {
+  kling_2_5_turbo: {
+    name: 'Kling 2.5 Turbo',
+    block: `MODEL_PROFILE: KLING_2_5_TURBO_VIDEO
+- Treat the image as the opening frame of a video.
+- Describe camera movement deliberately (slow push, arc left, dolly forward).
+- Highlight progression over 3–10 seconds depending on user instruction.
+- Use a single continuous descriptive paragraph.`
+  },
+  generic: {
+    name: 'Generic Video Model',
+    block: `MODEL_PROFILE: GENERIC_VIDEO_MODEL
+- Provide a cinematic video-style prompt.
+- Describe camera motion, framing, lighting changes, and scene evolution.
+- Keep it structured but expressed as one continuous paragraph.`
+  }
+};
 
 // Max limits
 export const MAX_HISTORY_ITEMS = 100;
