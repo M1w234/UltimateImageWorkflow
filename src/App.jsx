@@ -703,6 +703,40 @@ export default function App() {
               Video
             </button>
           </div>
+
+          {/* Mode Description */}
+          <div className="text-center mb-6">
+            {mode === 'analyze' && (
+              <p className="text-white text-lg">
+                Analyze images with AI vision, then transfer descriptions to the editor
+              </p>
+            )}
+            {mode === 'edit' && (
+              <p className="text-white text-lg">
+                Edit multiple images simultaneously with individual settings
+              </p>
+            )}
+            {mode === 'combine' && (
+              <p className="text-white text-lg">
+                Combine multiple images into one cohesive output - perfect for putting logos on products, merging scenes, or creative compositions
+              </p>
+            )}
+            {mode === 'multi' && (
+              <p className="text-white text-lg">
+                Upload multiple images and apply the same edits to all of them
+              </p>
+            )}
+            {mode === 'generate' && (
+              <p className="text-white text-lg">
+                Create images from text descriptions using AI
+              </p>
+            )}
+            {mode === 'video' && (
+              <p className="text-white text-lg">
+                Generate Videos from Text or Photos
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Main Content */}
