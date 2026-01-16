@@ -259,3 +259,55 @@ let idCounter = 0;
 export const generateUniqueId = () => {
   return `${Date.now()}-${idCounter++}-${Math.random().toString(36).substr(2, 9)}`;
 };
+
+/**
+ * Analysis History Functions
+ * Manage analyze mode history with generated prompts
+ */
+
+/**
+ * Save an analysis entry to history
+ * @param {Object} entry - Analysis entry with mode, images, prompt, etc.
+ * @returns {Promise<void>}
+ */
+export const saveAnalysisHistory = async (entry) => {
+  await initDB();
+  const historyEntry = {
+    id: generateUniqueId(),
+    timestamp: Date.now(),
+    mode: entry.mode,
+    images: entry.images,
+    prompt: entry.prompt,
+    modelProfile: entry.modelProfile,
+    userInstruction: entry.userInstruction || ''
+  };
+  await dbHelpers.put(ANALYSIS_STORE, historyEntry);
+};
+
+/**
+ * Get all analysis history entries
+ * @returns {Promise<Array>} Array of history entries sorted by timestamp descending
+ */
+export const getAnalysisHistory = async () => {
+  await initDB();
+  return await dbHelpers.getAll(ANALYSIS_STORE);
+};
+
+/**
+ * Delete a specific analysis history item
+ * @param {string} id - ID of the history item to delete
+ * @returns {Promise<void>}
+ */
+export const deleteAnalysisHistoryItem = async (id) => {
+  await initDB();
+  await dbHelpers.delete(ANALYSIS_STORE, id);
+};
+
+/**
+ * Clear all analysis history
+ * @returns {Promise<void>}
+ */
+export const clearAnalysisHistory = async () => {
+  await initDB();
+  await dbHelpers.clear(ANALYSIS_STORE);
+};

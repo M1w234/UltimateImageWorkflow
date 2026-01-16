@@ -191,21 +191,12 @@ export const buildImageConfig = ({ aspectRatio, resolution }) => {
  * @param {string} apiKey - Gemini API key
  * @param {string} imageBase64 - Base64 encoded image (with or without data URL prefix)
  * @param {string} userInstruction - Optional user instruction for customization
- * @param {string} systemPrompt - System prompt (photo or video mode)
- * @param {string} modelProfile - Optional model profile block
+ * @param {string} systemPrompt - Complete system prompt for the selected profile
  * @returns {Promise<string>} - Generated prompt text
  */
-export const generateImagePrompt = async (apiKey, imageBase64, userInstruction, systemPrompt, modelProfile) => {
-  // Build the user message
-  let userMessage = '';
-  
-  // Add model profile if provided
-  if (modelProfile) {
-    userMessage += modelProfile + '\n\n';
-  }
-  
-  // Add task instruction
-  userMessage += 'TASK:\n' + (userInstruction || 'Generate a detailed prompt based on this image.');
+export const generateImagePrompt = async (apiKey, imageBase64, userInstruction, systemPrompt) => {
+  // Build the user message with just the task instruction
+  const userMessage = 'TASK:\n' + (userInstruction || 'Generate a detailed prompt based on this image.');
   
   // Extract base64 data (remove data URL prefix if present)
   const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;

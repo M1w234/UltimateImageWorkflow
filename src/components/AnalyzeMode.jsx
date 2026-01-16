@@ -9,10 +9,17 @@ import {
   Video,
   Sparkles,
   Play,
-  ArrowRight
+  ArrowRight,
+  FileText
 } from 'lucide-react';
 import { fileToBase64, filterImageFiles } from '../utils/imageUtils';
-import { generateUniqueId } from '../utils/storage';
+import { 
+  generateUniqueId,
+  saveAnalysisHistory,
+  getAnalysisHistory,
+  deleteAnalysisHistoryItem,
+  clearAnalysisHistory
+} from '../utils/storage';
 import { generateImagePrompt, generateMultiImagePrompt } from '../services/geminiApi';
 import {
   PHOTO_MODE_SYSTEM_PROMPT,
@@ -20,8 +27,12 @@ import {
   START_END_FRAME_SYSTEM_PROMPT,
   PHOTO_MODEL_PROFILES,
   VIDEO_MODEL_PROFILES,
-  MAX_ANALYZE_IMAGES
+  MAX_ANALYZE_IMAGES,
+  MAX_ANALYSIS_ITEMS,
+  STORAGE_KEYS
 } from '../utils/constants';
+import PromptSettingsModal from './PromptSettingsModal';
+import AnalyzeHistory from './AnalyzeHistory';
 
 /**
  * Image-to-Prompt Generator Mode
@@ -42,6 +53,22 @@ export default function AnalyzeMode({
 }) {
   // Mode state: 'photo' or 'video'
   const [mode, setMode] = useState('photo');
+  
+  // Prompt settings modal
+  const [showPromptSettings, setShowPromptSettings] = useState(false);
+  
+  // Analysis history
+  const [analysisHistory, setAnalysisHistory] = useState([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  
+  // Custom prompts state (loaded from localStorage, fallback to constants)
+  const [customPrompts, setCustomPrompts] = useState({
+    photoSystem: PHOTO_MODE_SYSTEM_PROMPT,
+    videoSystem: VIDEO_MODE_SYSTEM_PROMPT,
+    startEndSystem: START_END_FRAME_SYSTEM_PROMPT,
+    photoProfiles: { ...PHOTO_MODEL_PROFILES },
+    videoProfiles: { ...VIDEO_MODEL_PROFILES }
+  });
   
   // Separate state for each mode
   const [photoState, setPhotoState] = useState({
@@ -90,16 +117,120 @@ export default function AnalyzeMode({
     imagesRef.current = images;
   }, [images]);
 
-  // Get current model profiles and system prompt based on mode
-  const modelProfiles = mode === 'photo' ? PHOTO_MODEL_PROFILES : VIDEO_MODEL_PROFILES;
+  // Load custom prompts and history from localStorage on mount
+  useEffect(() => {
+    loadCustomPrompts();
+    loadHistory();
+  }, []);
+
+  const loadCustomPrompts = () => {
+    const photoSystem = localStorage.getItem(STORAGE_KEYS.CUSTOM_PHOTO_SYSTEM_PROMPT);
+    const videoSystem = localStorage.getItem(STORAGE_KEYS.CUSTOM_VIDEO_SYSTEM_PROMPT);
+    const startEndSystem = localStorage.getItem(STORAGE_KEYS.CUSTOM_START_END_SYSTEM_PROMPT);
+    
+    const customPhotoProfiles = localStorage.getItem(STORAGE_KEYS.CUSTOM_PHOTO_PROFILES);
+    const customVideoProfiles = localStorage.getItem(STORAGE_KEYS.CUSTOM_VIDEO_PROFILES);
+    
+    const updatedPrompts = {
+      photoSystem: photoSystem || PHOTO_MODE_SYSTEM_PROMPT,
+      videoSystem: videoSystem || VIDEO_MODE_SYSTEM_PROMPT,
+      startEndSystem: startEndSystem || START_END_FRAME_SYSTEM_PROMPT,
+      photoProfiles: { ...PHOTO_MODEL_PROFILES },
+      videoProfiles: { ...VIDEO_MODEL_PROFILES }
+    };
+    
+    // Merge custom profiles with defaults
+    if (customPhotoProfiles) {
+      try {
+        const parsed = JSON.parse(customPhotoProfiles);
+        Object.keys(parsed).forEach(key => {
+          if (updatedPrompts.photoProfiles[key]) {
+            updatedPrompts.photoProfiles[key] = {
+              ...updatedPrompts.photoProfiles[key],
+              systemPrompt: parsed[key]
+            };
+          }
+        });
+      } catch (e) {
+        console.error('Failed to parse custom photo profiles:', e);
+      }
+    }
+    
+    if (customVideoProfiles) {
+      try {
+        const parsed = JSON.parse(customVideoProfiles);
+        Object.keys(parsed).forEach(key => {
+          if (updatedPrompts.videoProfiles[key]) {
+            updatedPrompts.videoProfiles[key] = {
+              ...updatedPrompts.videoProfiles[key],
+              systemPrompt: parsed[key]
+            };
+          }
+        });
+      } catch (e) {
+        console.error('Failed to parse custom video profiles:', e);
+      }
+    }
+    
+    setCustomPrompts(updatedPrompts);
+  };
+
+  // Load analysis history from IndexedDB
+  const loadHistory = async () => {
+    try {
+      const history = await getAnalysisHistory();
+      // Enforce max limit
+      setAnalysisHistory(history.slice(0, MAX_ANALYSIS_ITEMS));
+    } catch (error) {
+      console.error('Failed to load analysis history:', error);
+    }
+  };
+
+  // Save to history after successful generation
+  const saveToHistory = async (image, prompt, modelProfile) => {
+    try {
+      await saveAnalysisHistory({
+        mode,
+        images: [{ preview: image.preview, fileName: image.fileName }],
+        prompt,
+        modelProfile,
+        userInstruction
+      });
+      await loadHistory();
+    } catch (error) {
+      console.error('Failed to save to history:', error);
+    }
+  };
+
+  // Save start/end frames to history
+  const saveStartEndToHistory = async (prompt) => {
+    try {
+      await saveAnalysisHistory({
+        mode: 'video-start-end',
+        images: [
+          { preview: startEndState.startFrame.preview, fileName: 'Start Frame' },
+          { preview: startEndState.endFrame.preview, fileName: 'End Frame' }
+        ],
+        prompt: prompt || startEndState.generatedPrompt,
+        modelProfile: startEndState.selectedModel,
+        userInstruction: startEndState.userInstruction
+      });
+      await loadHistory();
+    } catch (error) {
+      console.error('Failed to save start/end to history:', error);
+    }
+  };
+
+  // Get current model profiles and system prompt based on mode (use custom if available)
+  const modelProfiles = mode === 'photo' ? customPrompts.photoProfiles : customPrompts.videoProfiles;
   
   let systemPrompt;
   if (mode === 'photo') {
-    systemPrompt = PHOTO_MODE_SYSTEM_PROMPT;
+    systemPrompt = customPrompts.photoSystem;
   } else if (mode === 'video' && videoSubMode === 'startEnd') {
-    systemPrompt = START_END_FRAME_SYSTEM_PROMPT;
+    systemPrompt = customPrompts.startEndSystem;
   } else {
-    systemPrompt = VIDEO_MODE_SYSTEM_PROMPT;
+    systemPrompt = customPrompts.videoSystem;
   }
 
   // Handle pending image transfer
@@ -267,17 +398,21 @@ export default function AnalyzeMode({
     updateImage(imageId, { isGenerating: true, error: null, generatedPrompt: '' });
 
     try {
-      const modelProfile = modelProfiles[image.selectedModel]?.block || null;
+      // Get the system prompt from the selected profile
+      const selectedProfile = modelProfiles[image.selectedModel];
+      const effectiveSystemPrompt = selectedProfile?.systemPrompt || systemPrompt;
       
       const result = await generateImagePrompt(
         apiKey,
         image.base64,
         userInstruction,
-        systemPrompt,
-        modelProfile
+        effectiveSystemPrompt
       );
 
       updateImage(imageId, { generatedPrompt: result, isGenerating: false });
+      
+      // Save to history after successful generation
+      await saveToHistory(image, result, image.selectedModel);
     } catch (err) {
       updateImage(imageId, { error: err.message || 'Failed to generate prompt', isGenerating: false });
     }
@@ -359,20 +494,21 @@ export default function AnalyzeMode({
     setStartEndState(prev => ({ ...prev, isGenerating: true, error: null }));
 
     try {
-      const modelProfile = startEndState.selectedModel
-        ? VIDEO_MODEL_PROFILES[startEndState.selectedModel]
+      // For start/end frames, use the profile's system prompt if selected, otherwise use start/end system prompt
+      const selectedProfile = startEndState.selectedModel
+        ? customPrompts.videoProfiles[startEndState.selectedModel]
         : null;
+      
+      const effectiveSystemPrompt = selectedProfile?.systemPrompt || customPrompts.startEndSystem;
 
-      const userMessage = `${startEndState.userInstruction ? startEndState.userInstruction + '\n\n' : ''}${
-        modelProfile ? modelProfile.block + '\n\n' : ''
-      }START FRAME: [First image uploaded]
+      const userMessage = `${startEndState.userInstruction ? startEndState.userInstruction + '\n\n' : ''}START FRAME: [First image uploaded]
 END FRAME: [Second image uploaded]
 
 Generate a video transition prompt that describes how to animate from the start frame to the end frame.`;
 
       const prompt = await generateMultiImagePrompt({
         apiKey,
-        systemPrompt: START_END_FRAME_SYSTEM_PROMPT,
+        systemPrompt: effectiveSystemPrompt,
         userMessage,
         images: [startEndState.startFrame.base64, startEndState.endFrame.base64]
       });
@@ -382,6 +518,9 @@ Generate a video transition prompt that describes how to animate from the start 
         generatedPrompt: prompt,
         isGenerating: false
       }));
+      
+      // Save to history after successful generation (pass prompt directly to avoid stale state)
+      await saveStartEndToHistory(prompt);
     } catch (error) {
       setStartEndState(prev => ({
         ...prev,
@@ -425,7 +564,23 @@ Generate a video transition prompt that describes how to animate from the start 
   const hasGeneratedPrompts = images.some(img => img.generatedPrompt);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Settings Button */}
+      <button
+        onClick={() => setShowPromptSettings(true)}
+        className="absolute top-0 right-0 p-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 hover:text-white transition-all z-10"
+        title="Edit Prompts"
+      >
+        <FileText className="w-5 h-5" />
+      </button>
+
+      {/* Prompt Settings Modal */}
+      <PromptSettingsModal
+        isOpen={showPromptSettings}
+        onClose={() => setShowPromptSettings(false)}
+        onSave={loadCustomPrompts}
+      />
+
       {/* Photo/Video Toggle */}
       <div className="flex justify-center">
         <div className="inline-flex bg-slate-700 rounded-xl p-1">
@@ -919,7 +1074,7 @@ Generate a video transition prompt that describes how to animate from the start 
               className="w-full bg-slate-900 text-white rounded-lg p-3 border border-slate-600 focus:border-pink-500 focus:outline-none"
             >
               <option value="">Default (No specific profile)</option>
-              {Object.entries(VIDEO_MODEL_PROFILES).map(([key, profile]) => (
+              {Object.entries(customPrompts.videoProfiles).map(([key, profile]) => (
                 <option key={key} value={key}>{profile.name}</option>
               ))}
             </select>
@@ -995,6 +1150,50 @@ Generate a video transition prompt that describes how to animate from the start 
           )}
         </div>
       )}
+
+      {/* Analysis History */}
+      <AnalyzeHistory
+        history={analysisHistory}
+        isOpen={historyOpen}
+        onToggle={() => setHistoryOpen(!historyOpen)}
+        onDeleteItem={async (id) => {
+          try {
+            await deleteAnalysisHistoryItem(id);
+            await loadHistory();
+          } catch (error) {
+            console.error('Failed to delete history item:', error);
+          }
+        }}
+        onClearAll={async () => {
+          if (confirm('Clear all analysis history? This action cannot be undone.')) {
+            try {
+              await clearAnalysisHistory();
+              await loadHistory();
+            } catch (error) {
+              console.error('Failed to clear history:', error);
+            }
+          }
+        }}
+        onPushToEditor={(item) => {
+          // Push to appropriate destination based on mode
+          const handler = item.mode === 'video' || item.mode === 'video-start-end' 
+            ? onTransferToVideo 
+            : onTransferToEditor;
+          
+          if (item.images.length === 1) {
+            handler({ preview: item.images[0].preview, prompt: item.prompt });
+          } else {
+            // For start/end frames
+            onTransferToVideo({
+              startFrame: item.images[0].preview,
+              endFrame: item.images[1].preview,
+              prompt: item.prompt,
+              isStartEndMode: true
+            });
+          }
+        }}
+        onImageClick={onImageClick}
+      />
     </div>
   );
 }
