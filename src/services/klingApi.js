@@ -55,7 +55,7 @@ export const uploadImage = async (base64Data, imgbbKey) => {
  * @param {string} params.version - Kling model version
  * @param {string} params.imageBase64 - Optional base64 image for start frame
  * @param {string} params.endImageBase64 - Optional base64 image for end frame (v2.5 only)
- * @param {boolean} params.enableAudio - Enable audio (v2.6+ pro mode only)
+ * @param {boolean} params.enableAudio - Enable audio (v2.6 pro mode only)
  * @returns {Promise<string>} - Task ID
  */
 export const startVideoGeneration = async ({

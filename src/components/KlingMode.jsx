@@ -80,37 +80,63 @@ export default function KlingMode({
 
   // Handle pending image transfer
   useEffect(() => {
-    if ((pendingImage || pendingEndFrame || pendingPrompt) && slots[0]) {
-      const updates = {};
+    if ((pendingImage || pendingEndFrame || pendingPrompt) && slots.length > 0) {
+      // Find the next available slot (first slot without an image)
+      let targetSlotIndex = slots.findIndex(slot => !slot.imagePreview);
       
-      // Load start frame if provided and not already set
-      if (pendingImage && !slots[0].imagePreview) {
-        // Extract base64 from data URL if needed
-        const base64 = pendingImage.includes(',') ? pendingImage.split(',')[1] : pendingImage;
-        updates.image = base64;
-        updates.imagePreview = pendingImage;
+      // If all slots have images, use the first slot
+      if (targetSlotIndex === -1) {
+        targetSlotIndex = 0;
       }
       
-      // Load end frame if provided and not already set
-      if (pendingEndFrame && !slots[0].endImagePreview) {
-        // Extract base64 from data URL if needed
-        const endBase64 = pendingEndFrame.includes(',') ? pendingEndFrame.split(',')[1] : pendingEndFrame;
-        updates.endImage = endBase64;
-        updates.endImagePreview = pendingEndFrame;
+      // If target slot doesn't exist (beyond visible slots), add a new slot if possible
+      if (targetSlotIndex >= visibleSlots && visibleSlots < MAX_SLOTS) {
+        addSlot();
+        targetSlotIndex = visibleSlots; // Will be the new slot after adding
+        // Wait for the slot to be added before updating
+        setTimeout(() => {
+          applyPendingImageToSlot(targetSlotIndex);
+        }, 0);
+        return;
       }
       
-      // Load prompt if provided and not already set
-      if (pendingPrompt && !slots[0].prompt) {
-        updates.prompt = pendingPrompt;
-      }
-      
-      // Only update if there are changes
-      if (Object.keys(updates).length > 0) {
-        updateSlot(0, updates);
-        onClearPendingImage?.();
-      }
+      applyPendingImageToSlot(targetSlotIndex);
     }
   }, [pendingImage, pendingEndFrame, pendingPrompt]);
+  
+  // Helper function to apply pending image to a specific slot
+  const applyPendingImageToSlot = (targetSlotIndex) => {
+    if (!slots[targetSlotIndex]) return;
+    
+    const updates = {};
+    
+    // Load start frame if provided and not already set
+    if (pendingImage && !slots[targetSlotIndex].imagePreview) {
+      // Extract base64 from data URL if needed
+      const base64 = pendingImage.includes(',') ? pendingImage.split(',')[1] : pendingImage;
+      updates.image = base64;
+      updates.imagePreview = pendingImage;
+    }
+    
+    // Load end frame if provided and not already set
+    if (pendingEndFrame && !slots[targetSlotIndex].endImagePreview) {
+      // Extract base64 from data URL if needed
+      const endBase64 = pendingEndFrame.includes(',') ? pendingEndFrame.split(',')[1] : pendingEndFrame;
+      updates.endImage = endBase64;
+      updates.endImagePreview = pendingEndFrame;
+    }
+    
+    // Load prompt if provided and not already set
+    if (pendingPrompt && !slots[targetSlotIndex].prompt) {
+      updates.prompt = pendingPrompt;
+    }
+    
+    // Only update if there are changes
+    if (Object.keys(updates).length > 0) {
+      updateSlot(targetSlotIndex, updates);
+      onClearPendingImage?.();
+    }
+  };
 
   // Handle pending batch transfer
   useEffect(() => {
@@ -466,8 +492,8 @@ export default function KlingMode({
       if (slot.image) {
         console.log('[KlingMode] Original image size:', Math.round(slot.image.length / 1024), 'KB');
         try {
-          // Use aggressive compression: 1024px max, 80% quality
-          resizedImage = await compressImage(slot.image, 1024, 0.80);
+          // Compression: 1800px max, 90% quality
+          resizedImage = await compressImage(slot.image, 1800, 0.90);
           console.log('[KlingMode] Compressed image size:', Math.round(resizedImage.length / 1024), 'KB');
         } catch (compressionErr) {
           console.error('[KlingMode] Compression failed:', compressionErr);
@@ -482,7 +508,7 @@ export default function KlingMode({
       if (klingModel === '2.5' && slot.endImage) {
         console.log('[KlingMode] Original end image size:', Math.round(slot.endImage.length / 1024), 'KB');
         try {
-          resizedEndImage = await compressImage(slot.endImage, 1024, 0.80);
+          resizedEndImage = await compressImage(slot.endImage, 1800, 0.90);
           console.log('[KlingMode] Compressed end image size:', Math.round(resizedEndImage.length / 1024), 'KB');
         } catch (compressionErr) {
           console.error('[KlingMode] End image compression failed:', compressionErr);
@@ -849,15 +875,16 @@ export default function KlingMode({
                     </select>
                   </div>
 
-                  {/* Audio Checkbox - Only for Kling 2.6 Pro Mode */}
-                  {klingModel === '2.6' && slot.mode === 'pro' && (
+                  {/* Audio Checkbox - Only for Kling 2.6 */}
+                  {klingModel === '2.6' && (
                     <div className="col-span-2 sm:col-span-3">
                       <label className="flex items-center gap-2 cursor-pointer group">
                         <input
                           type="checkbox"
                           checked={slot.enableAudio}
                           onChange={(e) => updateSlot(index, { enableAudio: e.target.checked })}
-                          className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-pink-500 focus:ring-pink-500 focus:ring-offset-0 cursor-pointer"
+                          disabled={slot.mode !== 'pro'}
+                          className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-pink-500 focus:ring-pink-500 focus:ring-offset-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                         />
                         <span className="text-slate-300 text-sm group-hover:text-white transition-colors">
                           🔊 Enable Audio Generation
@@ -865,7 +892,7 @@ export default function KlingMode({
                         <span className="text-slate-500 text-xs">(2x cost)</span>
                       </label>
                       <p className="text-slate-500 text-xs mt-1 ml-6">
-                        Generates synchronized audio with video. Only available in Kling 2.6 Pro mode.
+                        Generates synchronized audio with video. {slot.mode === 'pro' ? 'Available in Kling 2.6 Pro mode.' : 'Requires Pro mode to enable.'}
                       </p>
                     </div>
                   )}

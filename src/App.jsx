@@ -833,8 +833,6 @@ export default function App() {
               onUseForCombine={useFromCollectionForCombine}
               onUseForAnalyze={useFromCollectionForAnalyze}
               onSendToVideo={sendImageToVideo}
-              onSendToVideoStart={sendImageToVideoStart}
-              onSendToVideoEnd={sendImageToVideoEnd}
               currentMode={mode}
             />
           )}
