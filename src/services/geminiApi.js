@@ -248,6 +248,56 @@ export const generateImagePrompt = async (apiKey, imageBase64, userInstruction, 
 };
 
 /**
+ * Generate a prompt from text description (no image)
+ * @param {string} apiKey - Gemini API key
+ * @param {string} textDescription - User's text description
+ * @param {string} userInstruction - Optional user instruction
+ * @param {string} systemPrompt - Complete system prompt for the selected profile
+ * @returns {Promise<string>} - Generated prompt text
+ */
+export const generateTextOnlyPrompt = async (apiKey, textDescription, userInstruction, systemPrompt) => {
+  // Build the user message
+  const userMessage = `DESCRIPTION:\n${textDescription}\n\n${
+    userInstruction ? `ADDITIONAL INSTRUCTIONS:\n${userInstruction}\n\n` : ''
+  }TASK:\nGenerate a detailed, high-quality prompt for image generation based on the above description.`;
+  
+  const response = await fetch(
+    `${GEMINI_BASE_URL}/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [{ text: userMessage }]
+          }
+        ],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || `Gemini API error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const textPart = data.candidates?.[0]?.content?.parts?.find(p => p.text);
+  if (textPart?.text) {
+    return textPart.text;
+  }
+  
+  throw new Error('No text response from API');
+};
+
+/**
  * Generate a prompt from multiple images using Gemini
  * Analyzes multiple images and generates a combined prompt (e.g., for transitions)
  * @param {Object} params

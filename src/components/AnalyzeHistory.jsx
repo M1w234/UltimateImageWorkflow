@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { History, Trash2, ArrowRight, ChevronDown, ChevronUp, Camera, Video, Image as ImageIcon, Copy, Check } from 'lucide-react';
+import { History, Trash2, ArrowRight, ChevronDown, ChevronUp, Camera, Video, Image as ImageIcon, Copy, Check, FileText } from 'lucide-react';
 
 /**
  * Format timestamp to relative time string
@@ -85,25 +85,37 @@ function HistoryCard({ item, onDelete, onPushToEditor, onImageClick }) {
         </span>
       </div>
 
-      {/* Image(s) */}
+      {/* Image(s) or Text Description */}
       <div className="p-3">
-        <div className={`grid ${item.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2 mb-3`}>
-          {item.images.map((img, idx) => (
-            <div key={idx} className="relative group">
-              <img
-                src={img.preview}
-                alt={img.fileName || `Image ${idx + 1}`}
-                className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => onImageClick(img.preview, img.fileName)}
-              />
-              {item.images.length > 1 && (
-                <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
-                  {idx === 0 ? 'Start' : 'End'}
-                </div>
-              )}
+        {item.images && item.images.length > 0 ? (
+          <div className={`grid ${item.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1'} gap-2 mb-3`}>
+            {item.images.map((img, idx) => (
+              <div key={idx} className="relative group">
+                <img
+                  src={img.preview}
+                  alt={img.fileName || `Image ${idx + 1}`}
+                  className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => onImageClick(img.preview, img.fileName)}
+                />
+                {item.images.length > 1 && (
+                  <div className="absolute top-1 left-1 bg-black/60 text-white text-xs px-2 py-0.5 rounded">
+                    {idx === 0 ? 'Start' : 'End'}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-slate-800 rounded-lg p-4 mb-3 border border-slate-600">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="w-4 h-4 text-blue-400" />
+              <span className="text-xs font-medium text-slate-400">Text Description</span>
             </div>
-          ))}
-        </div>
+            <p className="text-slate-300 text-sm italic">
+              {item.textDescription || 'Text-to-image generation'}
+            </p>
+          </div>
+        )}
 
         {/* Prompt */}
         <div className="bg-slate-900 rounded-lg p-3 mb-3">

@@ -61,6 +61,14 @@ export default function AnalyzeMode({
   const [analysisHistory, setAnalysisHistory] = useState([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   
+  // Text-only mode state
+  const [textDescription, setTextDescription] = useState('');
+  const [textOnlyModel, setTextOnlyModel] = useState(null);
+  const [isGeneratingTextOnly, setIsGeneratingTextOnly] = useState(false);
+  const [textOnlyGeneratedPrompt, setTextOnlyGeneratedPrompt] = useState('');
+  const [textOnlyError, setTextOnlyError] = useState(null);
+  const [textOnlyCopied, setTextOnlyCopied] = useState(false);
+  
   // Custom prompts state (loaded from localStorage, fallback to constants)
   const [customPrompts, setCustomPrompts] = useState({
     photoSystem: PHOTO_MODE_SYSTEM_PROMPT,
@@ -698,6 +706,199 @@ Generate a video transition prompt that describes how to animate from the start 
           Select Images
         </div>
       </div>
+
+      {/* Text Description Field - Always visible */}
+      <div className="mb-4">
+        <label className="block text-white font-medium mb-2">
+          Description {images.length === 0 ? '(Required without images)' : '(Optional with images)'}
+        </label>
+        <textarea
+          value={textDescription}
+          onChange={(e) => setTextDescription(e.target.value)}
+          placeholder="Describe what you want to generate (e.g., 'A serene mountain landscape at sunset with a calm lake reflection')"
+          className="w-full bg-slate-900 text-white rounded-lg p-4 border border-slate-600 focus:border-amber-500 focus:outline-none resize-none"
+          rows={4}
+        />
+        <p className="text-slate-400 text-xs mt-1">
+          {images.length === 0 
+            ? 'Enter a description to generate a prompt without uploading images'
+            : 'Optional: Provide additional context for your images'}
+        </p>
+      </div>
+
+      {/* Text-Only Generation Section */}
+      {images.length === 0 && textDescription.trim() && (
+        <div className="bg-slate-800/50 rounded-lg p-6 border border-slate-700">
+          <div className="flex items-center gap-3 mb-4">
+            <Sparkles className="w-6 h-6 text-amber-400" />
+            <h3 className="text-white font-semibold text-lg">Text-to-Image Prompt Generation</h3>
+          </div>
+          
+          {/* Additional Instructions */}
+          <div className="mb-4">
+            <label className="block text-slate-300 text-sm font-medium mb-2">
+              Additional Instructions (Optional)
+            </label>
+            <input
+              type="text"
+              value={userInstruction}
+              onChange={(e) => setCurrentState(prev => ({
+                ...prev,
+                userInstruction: e.target.value
+              }))}
+              placeholder="e.g., 'focus on lighting' or 'make it dramatic'"
+              className="w-full bg-slate-900 text-white rounded-lg p-3 border border-slate-600 focus:border-amber-500 focus:outline-none"
+            />
+          </div>
+
+          {/* Model Profile Selection for Text-Only */}
+          <div className="mb-4">
+            <label className="block text-slate-300 text-sm font-medium mb-2">
+              Model Profile
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {Object.entries(modelProfiles).map(([key, profile]) => (
+                <button
+                  key={key}
+                  onClick={() => setTextOnlyModel(key)}
+                  disabled={isGeneratingTextOnly}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                    textOnlyModel === key
+                      ? 'bg-amber-500 text-white shadow-lg'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                  } ${isGeneratingTextOnly ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  {profile.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Generate Button */}
+          <button
+            onClick={async () => {
+              if (!apiKey) {
+                onOpenSettings();
+                return;
+              }
+              if (!textOnlyModel) {
+                setTextOnlyError('Please select a model profile');
+                return;
+              }
+              
+              setIsGeneratingTextOnly(true);
+              setTextOnlyError(null);
+              
+              try {
+                const selectedProfile = modelProfiles[textOnlyModel];
+                const effectiveSystemPrompt = selectedProfile?.systemPrompt || systemPrompt;
+                
+                const { generateTextOnlyPrompt } = await import('../services/geminiApi');
+                const result = await generateTextOnlyPrompt(
+                  apiKey,
+                  textDescription,
+                  userInstruction,
+                  effectiveSystemPrompt
+                );
+                
+                setTextOnlyGeneratedPrompt(result);
+                setIsGeneratingTextOnly(false);
+                
+                // Save to history
+                await saveAnalysisHistory({
+                  mode,
+                  images: [],
+                  textDescription,
+                  prompt: result,
+                  modelProfile: textOnlyModel,
+                  userInstruction
+                });
+                await loadHistory();
+              } catch (err) {
+                setTextOnlyError(err.message || 'Failed to generate prompt');
+                setIsGeneratingTextOnly(false);
+              }
+            }}
+            disabled={isGeneratingTextOnly || !textOnlyModel}
+            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:from-slate-600 disabled:to-slate-600 text-white font-semibold py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2"
+          >
+            {isGeneratingTextOnly ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-5 h-5" />
+                Generate Prompt
+              </>
+            )}
+          </button>
+          
+          {/* Error Display */}
+          {textOnlyError && (
+            <div className="mt-3 bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-300 text-sm">
+              {textOnlyError}
+            </div>
+          )}
+          
+          {/* Generated Output */}
+          {textOnlyGeneratedPrompt && !isGeneratingTextOnly && (
+            <div className="mt-4 pt-4 border-t border-slate-700">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-amber-400 font-medium flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  Generated Prompt
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(textOnlyGeneratedPrompt);
+                        setTextOnlyCopied(true);
+                        setTimeout(() => setTextOnlyCopied(false), 2000);
+                      } catch (err) {
+                        console.error('Failed to copy:', err);
+                      }
+                    }}
+                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      textOnlyCopied
+                        ? 'bg-green-500 text-white'
+                        : 'bg-amber-500 hover:bg-amber-600 text-white'
+                    }`}
+                  >
+                    {textOnlyCopied ? (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                  {getTransferHandler() && (
+                    <button
+                      onClick={() => getTransferHandler()({ preview: null, prompt: textOnlyGeneratedPrompt })}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-purple-500 hover:bg-purple-600 text-white transition-all"
+                    >
+                      <ArrowRight className="w-4 h-4" />
+                      {getTransferLabel()}
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="bg-slate-900 rounded-lg p-4 border border-slate-600">
+                <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">
+                  {textOnlyGeneratedPrompt}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Shared Instructions for All Images */}
       {images.length > 0 && (

@@ -276,7 +276,8 @@ export const saveAnalysisHistory = async (entry) => {
     id: generateUniqueId(),
     timestamp: Date.now(),
     mode: entry.mode,
-    images: entry.images,
+    images: entry.images || [],
+    textDescription: entry.textDescription || '',
     prompt: entry.prompt,
     modelProfile: entry.modelProfile,
     userInstruction: entry.userInstruction || ''
