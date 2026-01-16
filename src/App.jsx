@@ -62,6 +62,7 @@ export default function App() {
   const [apiKey, setApiKey] = useState('');
   const [openaiKey, setOpenaiKey] = useState('');
   const [klingKey, setKlingKey] = useState('');
+  const [imgbbKey, setImgbbKey] = useState('');
   const [selectedModel, setSelectedModel] = useState(DEFAULT_GEMINI_MODEL);
   const [openaiModel, setOpenaiModel] = useState(DEFAULT_OPENAI_MODEL);
   const [klingModel, setKlingModel] = useState(DEFAULT_KLING_MODEL);
@@ -97,6 +98,11 @@ export default function App() {
   // Pending image transfer
   const [pendingImage, setPendingImage] = useState(null);
   const [pendingMode, setPendingMode] = useState(null);
+  const [pendingPrompt, setPendingPrompt] = useState('');
+  const [pendingTransferId, setPendingTransferId] = useState(null);
+  const [pendingBatch, setPendingBatch] = useState(null);
+  const [pendingVideoBatch, setPendingVideoBatch] = useState(null);
+  const [pendingEndFrame, setPendingEndFrame] = useState(null);
 
   // ========================================
   // INITIALIZATION
@@ -127,6 +133,12 @@ export default function App() {
       setKlingKey(savedKlingKey);
     } else if (import.meta.env.VITE_KLING_KEY) {
       setKlingKey(import.meta.env.VITE_KLING_KEY);
+    }
+
+    // Load ImgBB key (required for image-to-video uploads)
+    const savedImgbbKey = localStorage.getItem(STORAGE_KEYS.IMGBB_API_KEY);
+    if (savedImgbbKey) {
+      setImgbbKey(savedImgbbKey);
     }
 
     // Load models
@@ -208,6 +220,16 @@ export default function App() {
     } else {
       localStorage.removeItem(STORAGE_KEYS.KLING_API_KEY);
       setKlingKey('');
+    }
+  };
+
+  const handleSaveImgbbKey = (key) => {
+    if (key) {
+      localStorage.setItem(STORAGE_KEYS.IMGBB_API_KEY, key);
+      setImgbbKey(key);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.IMGBB_API_KEY);
+      setImgbbKey('');
     }
   };
 
@@ -382,11 +404,25 @@ export default function App() {
   };
 
   const useFromCollectionForAnalyze = (img) => {
-    console.log('Use for analyze:', img.fileName);
+    setPendingImage(img.preview);
+    setPendingMode('analyze');
   };
 
-  const sendImageToVideo = (imageDataUrl) => {
-    console.log('Send to video');
+  const sendImageToVideo = (img) => {
+    setPendingImage(img.preview);
+    setPendingMode('video');
+    setMode('video');
+  };
+
+  const sendImageToVideoStart = (img) => {
+    setPendingImage(img.preview);
+    setPendingMode('video');
+    setMode('video');
+  };
+
+  const sendImageToVideoEnd = (img) => {
+    setPendingEndFrame(img.preview);
+    setPendingMode('video');
     setMode('video');
   };
 
@@ -418,6 +454,11 @@ export default function App() {
   const clearPendingImage = () => {
     setPendingImage(null);
     setPendingMode(null);
+    setPendingPrompt('');
+    setPendingTransferId(null);
+    setPendingBatch(null);
+    setPendingVideoBatch(null);
+    setPendingEndFrame(null);
   };
 
   // ========================================
@@ -459,11 +500,44 @@ export default function App() {
   };
 
   // Transfer analysis result to editor
-  const transferToEditor = ({ preview, analysis }) => {
-    // Switch to edit mode - the EditMode component will handle the actual transfer
+  const transferToEditor = ({ preview, prompt }) => {
+    // Set pending image and prompt, then switch to edit mode
+    setPendingImage(preview);
+    setPendingPrompt(prompt || '');
+    setPendingTransferId(Date.now()); // Unique ID for each transfer
+    setPendingMode('edit');
     setMode('edit');
-    // In a real implementation, you'd use context or state management here
-    console.log('Transfer to editor:', { preview, analysis: analysis?.substring(0, 100) });
+  };
+
+  // Transfer batch of images to editor
+  const transferBatchToEditor = (batch) => {
+    setPendingBatch(batch);
+    setPendingMode('edit');
+    setMode('edit');
+  };
+
+  // Transfer analysis result to video
+  const transferToVideo = ({ preview, prompt, startFrame, endFrame, isStartEndMode }) => {
+    if (isStartEndMode) {
+      // Transfer both frames and switch to Kling 2.5 (only model that supports start/end frames)
+      setPendingImage(startFrame);
+      setPendingEndFrame(endFrame);
+      setPendingPrompt(prompt || '');
+      handleSaveKlingModel('2.5'); // Automatically switch to Kling 2.5
+    } else {
+      setPendingImage(preview);
+    }
+    setPendingMode('video');
+    setMode('video');
+  };
+
+  // Transfer batch of images to video
+  const transferBatchToVideo = (batch) => {
+    if (batch && batch.length > 0) {
+      setPendingVideoBatch(batch);
+      setPendingMode('video');
+      setMode('video');
+    }
   };
 
   // ========================================
@@ -629,28 +703,6 @@ export default function App() {
               Video
             </button>
           </div>
-
-          {/* Mode Descriptions */}
-          {mode === 'analyze' && (
-            <p className="text-slate-400 text-center mt-4">
-              Generate a detailed prompt for still image generation
-            </p>
-          )}
-          {mode === 'combine' && (
-            <p className="text-slate-400 text-center mt-4">
-              Upload multiple reference images and combine them into a single output using AI. Great for style mixing, character merging, or creating composites!
-            </p>
-          )}
-          {mode === 'multi' && (
-            <p className="text-slate-400 text-center mt-4">
-              Upload multiple images and apply the same edits to all of them
-            </p>
-          )}
-          {mode === 'video' && (
-            <p className="text-slate-400 text-center mt-4">
-              Generate AI videos using Kling AI. Create multiple videos simultaneously with independent prompts and settings.
-            </p>
-          )}
         </div>
 
         {/* Main Content */}
@@ -658,6 +710,7 @@ export default function App() {
           {/* Analyze Mode */}
           <div style={{ display: mode === 'analyze' ? 'block' : 'none' }}>
             <AnalyzeMode
+              apiKey={apiKey}
               openaiKey={openaiKey}
               openaiModel={openaiModel}
               onOpenSettings={() => setSettingsOpen(true)}
@@ -667,6 +720,9 @@ export default function App() {
               onRemoveFromAnalysisHistory={removeFromAnalysisHistory}
               onClearAnalysisHistory={clearAnalysisHistory}
               onTransferToEditor={transferToEditor}
+              onTransferBatchToEditor={transferBatchToEditor}
+              onTransferToVideo={transferToVideo}
+              onTransferBatchToVideo={transferBatchToVideo}
               onImageClick={openImageModal}
               pendingImage={pendingMode === 'analyze' ? pendingImage : null}
               onClearPendingImage={clearPendingImage}
@@ -691,6 +747,9 @@ export default function App() {
               onClearCollection={clearCollection}
               onRemoveFromCollection={removeFromCollection}
               pendingImage={pendingMode === 'edit' ? pendingImage : null}
+              pendingPrompt={pendingMode === 'edit' ? pendingPrompt : ''}
+              pendingTransferId={pendingMode === 'edit' ? pendingTransferId : null}
+              pendingBatch={pendingMode === 'edit' ? pendingBatch : null}
               onClearPendingImage={clearPendingImage}
             />
           </div>
@@ -742,6 +801,7 @@ export default function App() {
           <div style={{ display: mode === 'video' ? 'block' : 'none' }}>
             <KlingMode
               klingKey={klingKey}
+              imgbbKey={imgbbKey}
               klingModel={klingModel}
               onKlingModelChange={handleSaveKlingModel}
               klingModels={KLING_MODELS}
@@ -749,6 +809,11 @@ export default function App() {
               onAddToCollection={addToCollection}
               onImageClick={openImageModal}
               playChime={handlePlayChime}
+              pendingImage={pendingMode === 'video' ? pendingImage : null}
+              pendingVideoBatch={pendingMode === 'video' ? pendingVideoBatch : null}
+              pendingEndFrame={pendingMode === 'video' ? pendingEndFrame : null}
+              pendingPrompt={pendingMode === 'video' ? pendingPrompt : ''}
+              onClearPendingImage={clearPendingImage}
             />
           </div>
 
@@ -768,6 +833,8 @@ export default function App() {
               onUseForCombine={useFromCollectionForCombine}
               onUseForAnalyze={useFromCollectionForAnalyze}
               onSendToVideo={sendImageToVideo}
+              onSendToVideoStart={sendImageToVideoStart}
+              onSendToVideoEnd={sendImageToVideoEnd}
               currentMode={mode}
             />
           )}
@@ -780,6 +847,7 @@ export default function App() {
             onClear={clearHistory}
             onRemove={removeFromHistory}
             onImageClick={openImageModal}
+            onAddToCollection={addToCollection}
           />
         </div>
 
@@ -822,6 +890,8 @@ export default function App() {
         klingModel={klingModel}
         onKlingModelChange={handleSaveKlingModel}
         klingModels={KLING_MODELS}
+        imgbbKey={imgbbKey}
+        onSaveImgbb={handleSaveImgbbKey}
       />
     </div>
   );

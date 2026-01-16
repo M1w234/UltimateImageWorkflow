@@ -41,6 +41,9 @@ export default function EditMode({
   onRemoveFromCollection,
   // Pending image transfer
   pendingImage,
+  pendingPrompt,
+  pendingTransferId,
+  pendingBatch,
   onClearPendingImage
 }) {
   // Image slots state
@@ -64,6 +67,13 @@ export default function EditMode({
   );
   const [visibleSlots, setVisibleSlots] = useState(1);
 
+  // Ref to track current images state (prevents stale closures)
+  const imagesRef = useRef(images);
+  
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
   // Duplicate image state
   const [duplicateImage, setDuplicateImage] = useState(null);
   const [duplicatePreview, setDuplicatePreview] = useState(null);
@@ -86,13 +96,17 @@ export default function EditMode({
 
   // Handle pending image transfer
   useEffect(() => {
-    if (pendingImage) {
+    if (pendingImage && pendingTransferId) {
+      // Strip data URI prefix to get raw base64 for API calls
+      const rawBase64 = pendingImage.split(',')[1] || pendingImage;
+      
       // Find first empty slot
       const emptyIndex = images.findIndex(img => !img.image);
       if (emptyIndex !== -1) {
         updateImage(emptyIndex, {
-          image: pendingImage,
+          image: rawBase64,
           imagePreview: pendingImage,
+          prompt: pendingPrompt || '',
           error: null,
           result: null,
           results: []
@@ -104,8 +118,9 @@ export default function EditMode({
           setVisibleSlots(prev => prev + 1);
           setTimeout(() => {
             updateImage(newSlotIndex, {
-              image: pendingImage,
+              image: rawBase64,
               imagePreview: pendingImage,
+              prompt: pendingPrompt || '',
               error: null,
               result: null,
               results: []
@@ -115,7 +130,62 @@ export default function EditMode({
       }
       onClearPendingImage?.();
     }
-  }, [pendingImage]);
+  }, [pendingTransferId]);
+
+  // Handle batch transfer of multiple images
+  useEffect(() => {
+    if (pendingBatch && pendingBatch.length > 0) {
+      // Find empty slots in currently visible range
+      const currentImages = imagesRef.current;
+      const visibleImages = currentImages.slice(0, visibleSlots);
+      const emptyCount = visibleImages.filter(img => !img.image).length;
+      
+      // If we need more empty slots than we have, expand visible slots
+      const slotsToAdd = Math.max(0, pendingBatch.length - emptyCount);
+      if (slotsToAdd > 0) {
+        setVisibleSlots(prev => Math.min(prev + slotsToAdd, MAX_SLOTS));
+      }
+      
+      // Fill slots with batch data using functional update to avoid stale closure
+      setTimeout(() => {
+        setImages(currentImages => {
+          // Find empty slot indices ONLY in visible range
+          const emptyIndices = [];
+          for (let i = 0; i < visibleSlots + slotsToAdd; i++) {
+            if (!currentImages[i].image) {
+              emptyIndices.push(i);
+            }
+          }
+          
+          // Create a copy to update
+          const newImages = [...currentImages];
+          
+          // Fill each empty slot with batch data
+          pendingBatch.forEach((item, batchIdx) => {
+            const targetIndex = emptyIndices[batchIdx];
+            if (targetIndex !== undefined && targetIndex >= 0) {
+              // Strip data URI prefix to get raw base64 for API calls
+              const rawBase64 = item.preview.split(',')[1] || item.preview;
+              
+              newImages[targetIndex] = {
+                ...newImages[targetIndex],
+                image: rawBase64,
+                imagePreview: item.preview,
+                prompt: item.prompt || '',
+                error: null,
+                result: null,
+                results: []
+              };
+            }
+          });
+          
+          return newImages;
+        });
+        
+        onClearPendingImage?.();
+      }, 150); // Slightly longer delay to ensure slot expansion completes
+    }
+  }, [pendingBatch, visibleSlots, onClearPendingImage]);
 
   // Update a single image slot
   const updateImage = (index, updates) => {

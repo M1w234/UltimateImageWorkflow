@@ -18,6 +18,9 @@ const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models
 export const editImage = async ({ apiKey, model, prompt, imageBase64, imageConfig = {} }) => {
   const url = `${GEMINI_BASE_URL}/${model}:generateContent?key=${apiKey}`;
   
+  // Extract base64 data (remove data URL prefix if present)
+  const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+  
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -25,7 +28,7 @@ export const editImage = async ({ apiKey, model, prompt, imageBase64, imageConfi
       contents: [{
         parts: [
           { text: prompt },
-          { inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }
+          { inline_data: { mime_type: 'image/jpeg', data: base64Data } }
         ]
       }],
       generationConfig: {
@@ -223,6 +226,77 @@ export const generateImagePrompt = async (apiKey, imageBase64, userInstruction, 
                   data: base64Data
                 }
               }
+            ]
+          }
+        ],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error?.message || `Gemini API error: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  // Extract text from response
+  const textPart = data.candidates?.[0]?.content?.parts?.find(p => p.text);
+  if (textPart?.text) {
+    return textPart.text;
+  }
+  
+  throw new Error('No text response from API');
+};
+
+/**
+ * Generate a prompt from multiple images using Gemini
+ * Analyzes multiple images and generates a combined prompt (e.g., for transitions)
+ * @param {Object} params
+ * @param {string} params.apiKey - Gemini API key
+ * @param {Array<string>} params.images - Array of base64 encoded images
+ * @param {string} params.userMessage - User message/instruction
+ * @param {string} params.systemPrompt - System prompt
+ * @returns {Promise<string>} - Generated prompt text
+ */
+export const generateMultiImagePrompt = async ({ apiKey, images, userMessage, systemPrompt }) => {
+  if (!images || images.length === 0) {
+    throw new Error('At least one image is required');
+  }
+  
+  // Build image parts array
+  const imageParts = images.map(imageBase64 => {
+    // Extract base64 data (remove data URL prefix if present)
+    const base64Data = imageBase64 && imageBase64.includes ? 
+      (imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64) : 
+      imageBase64;
+    
+    return {
+      inline_data: {
+        mime_type: 'image/jpeg',
+        data: base64Data
+      }
+    };
+  });
+  
+  const response = await fetch(
+    `${GEMINI_BASE_URL}/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            parts: [
+              ...imageParts,
+              { text: userMessage }
             ]
           }
         ],

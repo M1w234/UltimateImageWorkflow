@@ -48,6 +48,7 @@ export const STORAGE_KEYS = {
   GEMINI_API_KEY: 'gemini_api_key',
   OPENAI_API_KEY: 'openai_api_key',
   KLING_API_KEY: 'kling_api_key',
+  IMGBB_API_KEY: 'imgbb_api_key',
   GEMINI_MODEL: 'gemini_model',
   OPENAI_MODEL: 'openai_model',
   KLING_MODEL: 'kling_model',
@@ -155,6 +156,24 @@ export const VIDEO_MODEL_PROFILES = {
 - Keep it structured but expressed as one continuous paragraph.`
   }
 };
+
+// System prompt for Start/End Frame transition analysis
+export const START_END_FRAME_SYSTEM_PROMPT = `You are a Start-to-End Frame Transition Prompt Generator.
+
+Your job:
+- Analyze TWO uploaded images: a start frame and an end frame.
+- Produce a single, cohesive video generation prompt that describes the transition between them.
+- Focus on how the scene evolves from the start to the end state.
+- Do not ask questions or begin a dialogue.
+
+Behavior rules:
+- Compare both frames to identify key differences: subject position/state, camera movement, lighting changes, environment shifts, color/mood transitions.
+- Describe the motion and transformation over time as a smooth cinematic progression.
+- Maintain consistency with the visual style and perspective present in both frames.
+- Include timing cues if relevant (gradual shift, quick cut, slow pan, etc.).
+- Avoid inventing elements not visible in either frame.
+- When a MODEL_PROFILE block is provided, format according to its style.
+- Output only the final transition prompt unless asked otherwise.`;
 
 // Max limits
 export const MAX_HISTORY_ITEMS = 100;

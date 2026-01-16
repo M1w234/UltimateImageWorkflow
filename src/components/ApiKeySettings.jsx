@@ -34,17 +34,22 @@ export default function ApiKeySettings({
   onSaveKling,
   klingModel,
   onKlingModelChange,
-  klingModels
+  klingModels,
+  // ImgBB
+  imgbbKey,
+  onSaveImgbb
 }) {
   const [inputKey, setInputKey] = useState(apiKey || '');
   const [inputOpenaiKey, setInputOpenaiKey] = useState(openaiKey || '');
   const [inputKlingKey, setInputKlingKey] = useState(klingKey || '');
+  const [inputImgbbKey, setInputImgbbKey] = useState(imgbbKey || '');
   const [inputModel, setInputModel] = useState(selectedModel || 'gemini-2.0-flash-exp-image-generation');
   const [inputOpenaiModel, setInputOpenaiModel] = useState(openaiModel || 'gpt-5.2');
   const [inputKlingModel, setInputKlingModel] = useState(klingModel || '2.6');
   const [showKey, setShowKey] = useState(false);
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showKlingKey, setShowKlingKey] = useState(false);
+  const [showImgbbKey, setShowImgbbKey] = useState(false);
   const [saved, setSaved] = useState(false);
 
   // Sync with props when they change
@@ -52,10 +57,11 @@ export default function ApiKeySettings({
     setInputKey(apiKey || '');
     setInputOpenaiKey(openaiKey || '');
     setInputKlingKey(klingKey || '');
+    setInputImgbbKey(imgbbKey || '');
     setInputModel(selectedModel || 'gemini-2.0-flash-exp-image-generation');
     setInputOpenaiModel(openaiModel || 'gpt-5.2');
     setInputKlingModel(klingModel || '2.6');
-  }, [apiKey, openaiKey, klingKey, selectedModel, openaiModel, klingModel]);
+  }, [apiKey, openaiKey, klingKey, imgbbKey, selectedModel, openaiModel, klingModel]);
 
   const handleSave = () => {
     onSaveGemini(inputKey);
@@ -64,6 +70,7 @@ export default function ApiKeySettings({
     if (onOpenaiModelChange) onOpenaiModelChange(inputOpenaiModel);
     if (onSaveKling) onSaveKling(inputKlingKey);
     if (onKlingModelChange) onKlingModelChange(inputKlingModel);
+    if (onSaveImgbb) onSaveImgbb(inputImgbbKey);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -240,6 +247,48 @@ export default function ApiKeySettings({
                 >
                   PiAPI Workspace
                 </a>
+              </p>
+            </div>
+          </div>
+
+          {/* ImgBB Key */}
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-orange-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Video className="w-6 h-6 text-orange-400" />
+            </div>
+            <div className="flex-1 space-y-3">
+              <div>
+                <h3 className="text-white font-semibold mb-1">ImgBB API Key</h3>
+                <p className="text-slate-400 text-sm">
+                  Required for image-to-video uploads (free)
+                </p>
+              </div>
+              <div className="relative">
+                <input
+                  type={showImgbbKey ? 'text' : 'password'}
+                  value={inputImgbbKey}
+                  onChange={(e) => setInputImgbbKey(e.target.value)}
+                  placeholder="Your ImgBB API key..."
+                  className="w-full bg-slate-900 text-white rounded-lg p-3 pr-11 border border-slate-600 focus:border-orange-500 focus:outline-none font-mono text-sm"
+                />
+                <button
+                  onClick={() => setShowImgbbKey(!showImgbbKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  {showImgbbKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-slate-400 text-xs">
+                Get your free key from{' '}
+                <a
+                  href="https://imgbb.com/api"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-orange-400 hover:underline"
+                >
+                  ImgBB API
+                </a>
+                {' '}- required for Kling image-to-video
               </p>
             </div>
           </div>

@@ -9,9 +9,10 @@ import {
   Clock,
   ChevronDown,
   Trash,
-  Plus
+  Plus,
+  ArrowLeftRight
 } from 'lucide-react';
-import { fileToBase64, filterImageFiles, isValidImage } from '../utils/imageUtils';
+import { fileToBase64, filterImageFiles, isValidImage, compressImage } from '../utils/imageUtils';
 import { generateUniqueId } from '../utils/storage';
 import { startVideoGeneration, checkVideoStatus } from '../services/klingApi';
 import { ASPECT_RATIOS, VIDEO_DURATIONS, VIDEO_MODES, KLING_MODELS, MAX_SLOTS } from '../utils/constants';
@@ -21,13 +22,19 @@ import { ASPECT_RATIOS, VIDEO_DURATIONS, VIDEO_MODES, KLING_MODELS, MAX_SLOTS } 
  */
 export default function KlingMode({
   klingKey,
+  imgbbKey,
   klingModel,
   onKlingModelChange,
   klingModels,
   onOpenSettings,
   onAddToCollection,
   onImageClick,
-  playChime
+  playChime,
+  pendingImage,
+  pendingVideoBatch,
+  pendingEndFrame,
+  pendingPrompt,
+  onClearPendingImage
 }) {
   // Generation slots
   const [slots, setSlots] = useState([
@@ -60,17 +67,110 @@ export default function KlingMode({
   // Refs for file inputs (arrays)
   const fileInputRefs = useRef([]);
   const endFileInputRefs = useRef([]);
+  const pollIntervals = useRef({});  // Track polling intervals by slot index
 
-  // Cleanup polling intervals on unmount
+  // Cleanup polling intervals on unmount only
   useEffect(() => {
     return () => {
-      slots.forEach((slot) => {
-        if (slot.pollInterval) {
-          clearInterval(slot.pollInterval);
-        }
+      Object.values(pollIntervals.current).forEach(interval => {
+        if (interval) clearInterval(interval);
       });
     };
-  }, [slots]);
+  }, []);  // Empty dependency array - only runs on unmount
+
+  // Handle pending image transfer
+  useEffect(() => {
+    if ((pendingImage || pendingEndFrame || pendingPrompt) && slots[0]) {
+      const updates = {};
+      
+      // Load start frame if provided and not already set
+      if (pendingImage && !slots[0].imagePreview) {
+        // Extract base64 from data URL if needed
+        const base64 = pendingImage.includes(',') ? pendingImage.split(',')[1] : pendingImage;
+        updates.image = base64;
+        updates.imagePreview = pendingImage;
+      }
+      
+      // Load end frame if provided and not already set
+      if (pendingEndFrame && !slots[0].endImagePreview) {
+        // Extract base64 from data URL if needed
+        const endBase64 = pendingEndFrame.includes(',') ? pendingEndFrame.split(',')[1] : pendingEndFrame;
+        updates.endImage = endBase64;
+        updates.endImagePreview = pendingEndFrame;
+      }
+      
+      // Load prompt if provided and not already set
+      if (pendingPrompt && !slots[0].prompt) {
+        updates.prompt = pendingPrompt;
+      }
+      
+      // Only update if there are changes
+      if (Object.keys(updates).length > 0) {
+        updateSlot(0, updates);
+        onClearPendingImage?.();
+      }
+    }
+  }, [pendingImage, pendingEndFrame, pendingPrompt]);
+
+  // Handle pending batch transfer
+  useEffect(() => {
+    if (pendingVideoBatch && pendingVideoBatch.length > 0) {
+      const batchSize = Math.min(pendingVideoBatch.length, MAX_SLOTS);
+      
+      // Create slots if needed
+      const slotsNeeded = batchSize - slots.length;
+      if (slotsNeeded > 0) {
+        const newSlots = [...slots];
+        for (let i = 0; i < slotsNeeded; i++) {
+          newSlots.push({
+            id: generateUniqueId(),
+            prompt: '',
+            negativePrompt: '',
+            image: null,
+            imagePreview: null,
+            endImage: null,
+            endImagePreview: null,
+            duration: 5,
+            aspectRatio: '16:9',
+            mode: 'std',
+            enableAudio: false,
+            loading: false,
+            taskId: null,
+            status: null,
+            result: null,
+            error: null,
+            videoHistory: [],
+            historyOpen: false,
+            dragActive: false,
+            endDragActive: false,
+            pollInterval: null
+          });
+        }
+        setSlots(newSlots);
+        setVisibleSlots(batchSize);
+      }
+      
+      // Load images into slots
+      setSlots((prev) => {
+        const updated = [...prev];
+        pendingVideoBatch.slice(0, batchSize).forEach((item, index) => {
+          if (updated[index]) {
+            // Extract base64 from data URL if needed
+            const base64 = item.preview.includes(',') ? item.preview.split(',')[1] : item.preview;
+            updated[index] = {
+              ...updated[index],
+              image: base64,
+              imagePreview: item.preview,
+              prompt: item.prompt || ''
+            };
+          }
+        });
+        return updated;
+      });
+      
+      onClearPendingImage?.();
+    }
+  }, [pendingVideoBatch]);
 
   // Update a slot
   const updateSlot = (index, updates) => {
@@ -218,11 +318,21 @@ export default function KlingMode({
     }
   };
 
+  const swapFrames = (index) => {
+    const slot = slots[index];
+    updateSlot(index, {
+      image: slot.endImage,
+      imagePreview: slot.endImagePreview,
+      endImage: slot.image,
+      endImagePreview: slot.imagePreview
+    });
+  };
+
   const clearSlot = (index) => {
     // Stop polling if active
-    const slot = slots[index];
-    if (slot.pollInterval) {
-      clearInterval(slot.pollInterval);
+    if (pollIntervals.current[index]) {
+      clearInterval(pollIntervals.current[index]);
+      delete pollIntervals.current[index];
     }
     
     updateSlot(index, {
@@ -250,6 +360,7 @@ export default function KlingMode({
 
   // Poll for video status (per slot)
   const pollVideoStatus = async (index, taskIdToPoll) => {
+    console.log('[KlingMode] Polling status for task:', taskIdToPoll);
     try {
       const result = await checkVideoStatus({ apiKey: klingKey, taskId: taskIdToPoll });
       const slot = slots[index];
@@ -301,23 +412,27 @@ export default function KlingMode({
 
   // Start polling for a slot
   const startPolling = (index, taskId) => {
+    // Clear any existing interval for this slot
+    if (pollIntervals.current[index]) {
+      clearInterval(pollIntervals.current[index]);
+    }
+    
     const interval = setInterval(async () => {
       const isDone = await pollVideoStatus(index, taskId);
       if (isDone) {
-        clearInterval(interval);
-        updateSlot(index, { pollInterval: null });
+        clearInterval(pollIntervals.current[index]);
+        delete pollIntervals.current[index];
       }
     }, 5000);
     
-    updateSlot(index, { pollInterval: interval });
+    pollIntervals.current[index] = interval;
   };
 
   // Stop polling for a slot
   const stopPolling = (index) => {
-    const slot = slots[index];
-    if (slot.pollInterval) {
-      clearInterval(slot.pollInterval);
-      updateSlot(index, { pollInterval: null });
+    if (pollIntervals.current[index]) {
+      clearInterval(pollIntervals.current[index]);
+      delete pollIntervals.current[index];
     }
   };
 
@@ -344,6 +459,42 @@ export default function KlingMode({
     });
 
     try {
+      // Compress images to reduce payload size for API
+      let resizedImage = slot.image;
+      let resizedEndImage = slot.endImage;
+      
+      if (slot.image) {
+        console.log('[KlingMode] Original image size:', Math.round(slot.image.length / 1024), 'KB');
+        try {
+          // Use aggressive compression: 1024px max, 80% quality
+          resizedImage = await compressImage(slot.image, 1024, 0.80);
+          console.log('[KlingMode] Compressed image size:', Math.round(resizedImage.length / 1024), 'KB');
+        } catch (compressionErr) {
+          console.error('[KlingMode] Compression failed:', compressionErr);
+          updateSlot(index, { 
+            error: 'Failed to compress image: ' + compressionErr.message,
+            loading: false
+          });
+          return;
+        }
+      }
+      
+      if (klingModel === '2.5' && slot.endImage) {
+        console.log('[KlingMode] Original end image size:', Math.round(slot.endImage.length / 1024), 'KB');
+        try {
+          resizedEndImage = await compressImage(slot.endImage, 1024, 0.80);
+          console.log('[KlingMode] Compressed end image size:', Math.round(resizedEndImage.length / 1024), 'KB');
+        } catch (compressionErr) {
+          console.error('[KlingMode] End image compression failed:', compressionErr);
+          updateSlot(index, { 
+            error: 'Failed to compress end image: ' + compressionErr.message,
+            loading: false
+          });
+          return;
+        }
+      }
+      
+      console.log('[KlingMode] Calling API with images...');
       const newTaskId = await startVideoGeneration({
         apiKey: klingKey,
         prompt: slot.prompt.trim(),
@@ -352,9 +503,10 @@ export default function KlingMode({
         aspectRatio: slot.aspectRatio,
         mode: slot.mode,
         version: klingModel,
-        imageBase64: slot.image,
-        endImageBase64: klingModel === '2.5' ? slot.endImage : null,
-        enableAudio: slot.enableAudio && klingModel === '2.6' && slot.mode === 'pro'
+        imageBase64: resizedImage,
+        endImageBase64: klingModel === '2.5' ? resizedEndImage : null,
+        enableAudio: slot.enableAudio && klingModel === '2.6' && slot.mode === 'pro',
+        imgbbKey: imgbbKey
       });
 
       updateSlot(index, { 
@@ -530,8 +682,22 @@ export default function KlingMode({
                   </div>
                 </div>
 
+                {/* Swap Button - only show when both frames exist in Kling 2.5 */}
+                {slot.imagePreview && slot.endImagePreview && klingModel === '2.5' && (
+                  <div className="flex justify-center -my-2">
+                    <button
+                      onClick={() => swapFrames(index)}
+                      className="bg-slate-700 hover:bg-slate-600 text-pink-400 p-2 rounded-lg transition-colors flex items-center gap-2 text-sm"
+                      title="Swap start and end frames"
+                    >
+                      <ArrowLeftRight className="w-4 h-4" />
+                      Swap Frames
+                    </button>
+                  </div>
+                )}
+
                 {/* End Frame - Kling 2.5 Only */}
-                {slot.imagePreview && klingModel === '2.5' && (
+                {klingModel === '2.5' && (
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <label className="block text-slate-300 font-medium">
@@ -683,19 +849,26 @@ export default function KlingMode({
                     </select>
                   </div>
 
-                  <div className="flex items-end col-span-2">
-                    {klingModel === '2.6' && slot.mode === 'pro' && (
-                      <label className="flex items-center gap-2 text-sm text-slate-400 cursor-pointer">
+                  {/* Audio Checkbox - Only for Kling 2.6 Pro Mode */}
+                  {klingModel === '2.6' && slot.mode === 'pro' && (
+                    <div className="col-span-2 sm:col-span-3">
+                      <label className="flex items-center gap-2 cursor-pointer group">
                         <input
                           type="checkbox"
                           checked={slot.enableAudio}
                           onChange={(e) => updateSlot(index, { enableAudio: e.target.checked })}
-                          className="rounded border-slate-600"
+                          className="w-4 h-4 rounded border-slate-600 bg-slate-900 text-pink-500 focus:ring-pink-500 focus:ring-offset-0 cursor-pointer"
                         />
-                        Enable Audio
+                        <span className="text-slate-300 text-sm group-hover:text-white transition-colors">
+                          🔊 Enable Audio Generation
+                        </span>
+                        <span className="text-slate-500 text-xs">(2x cost)</span>
                       </label>
-                    )}
-                  </div>
+                      <p className="text-slate-500 text-xs mt-1 ml-6">
+                        Generates synchronized audio with video. Only available in Kling 2.6 Pro mode.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Generate Button */}

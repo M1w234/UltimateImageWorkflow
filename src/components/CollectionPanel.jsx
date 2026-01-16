@@ -18,6 +18,8 @@ export default function CollectionPanel({
   onUseForCombine,
   onUseForAnalyze,
   onSendToVideo,
+  onSendToVideoStart,
+  onSendToVideoEnd,
   currentMode
 }) {
   const getUseHandler = () => {
@@ -138,8 +140,27 @@ export default function CollectionPanel({
                       </button>
                     </div>
                     
-                    {/* Center add button */}
-                    {useHandler && (
+                    {/* Center add button(s) */}
+                    {currentMode === 'video' && onSendToVideoStart && onSendToVideoEnd ? (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => onSendToVideoStart(img)}
+                            className="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded-lg shadow-md transition-all hover:scale-105 pointer-events-auto text-xs font-semibold"
+                            title="Add to Start Frame"
+                          >
+                            Start
+                          </button>
+                          <button
+                            onClick={() => onSendToVideoEnd(img)}
+                            className="bg-purple-500 hover:bg-purple-600 text-white px-2 py-1 rounded-lg shadow-md transition-all hover:scale-105 pointer-events-auto text-xs font-semibold"
+                            title="Add to End Frame"
+                          >
+                            End
+                          </button>
+                        </div>
+                      </div>
+                    ) : useHandler ? (
                       <div className="absolute inset-0 flex items-center justify-center">
                         <button
                           onClick={() => useHandler(img)}
@@ -149,7 +170,7 @@ export default function CollectionPanel({
                           <Plus className="w-3 h-3" />
                         </button>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ))}

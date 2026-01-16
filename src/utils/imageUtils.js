@@ -126,3 +126,53 @@ export const copyImageToClipboard = async (dataUrl) => {
     return false;
   }
 };
+
+/**
+ * Compress and resize an image to reduce payload size
+ * @param {string} base64OrDataUrl - Base64 string or data URL
+ * @param {number} maxDimension - Maximum width or height (default 1024)
+ * @param {number} quality - JPEG quality 0-1 (default 0.85)
+ * @returns {Promise<string>} - Compressed base64 (without data URL prefix)
+ */
+export const compressImage = (base64OrDataUrl, maxDimension = 1024, quality = 0.85) => {
+  return new Promise((resolve, reject) => {
+    // Ensure we have a data URL
+    const dataUrl = base64OrDataUrl.startsWith('data:') 
+      ? base64OrDataUrl 
+      : `data:image/jpeg;base64,${base64OrDataUrl}`;
+    
+    const img = new Image();
+    img.onload = () => {
+      // Calculate new dimensions while maintaining aspect ratio
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > maxDimension || height > maxDimension) {
+        if (width > height) {
+          height = (height / width) * maxDimension;
+          width = maxDimension;
+        } else {
+          width = (width / height) * maxDimension;
+          height = maxDimension;
+        }
+      }
+      
+      // Create canvas and draw resized image
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      
+      // Convert to JPEG base64
+      const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+      
+      // Extract just the base64 part
+      const base64 = compressedDataUrl.split(',')[1];
+      resolve(base64);
+    };
+    
+    img.onerror = () => reject(new Error('Failed to load image for compression'));
+    img.src = dataUrl;
+  });
+};

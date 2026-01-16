@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Clock, ChevronDown, Trash, Download, X } from 'lucide-react';
+import { Clock, ChevronDown, Trash, Download, X, Plus } from 'lucide-react';
 
 /**
  * History panel component - shows past generations
@@ -10,7 +10,8 @@ export default function HistoryPanel({
   onToggle,
   onClear,
   onRemove,
-  onImageClick
+  onImageClick,
+  onAddToCollection
 }) {
   const [expandedIds, setExpandedIds] = useState(new Set());
 
@@ -148,22 +149,39 @@ export default function HistoryPanel({
                     {entry.sourceImage && (
                       <div className="flex-shrink-0 group relative flex flex-col">
                         <p className="text-slate-500 text-xs mb-1">Source</p>
-                        <div className="relative flex items-center justify-center bg-slate-900/50 rounded border border-slate-600" style={{ minHeight: '64px', minWidth: '50px' }}>
+                        <div className="relative flex items-center justify-center bg-slate-900/50 rounded border border-slate-600 hover:border-blue-500 transition-colors" style={{ minHeight: '64px', minWidth: '50px' }}>
                           <img
                             src={entry.sourceImage}
                             alt="Source"
-                            className="h-16 object-contain rounded cursor-pointer hover:border-blue-500 transition-colors"
+                            className="h-16 object-contain rounded cursor-pointer"
                             style={{ maxWidth: '100px' }}
                             onClick={() => onImageClick(entry.sourceImage, 'Source Image')}
                           />
-                          <button
-                            onClick={() =>
-                              downloadImage(entry.sourceImage, 'source', 0)
-                            }
-                            className="absolute bottom-0 right-0 bg-blue-500 hover:bg-blue-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            <Download className="w-2.5 h-2.5" />
-                          </button>
+                          
+                          {/* Overlay with actions */}
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded">
+                            {/* Top right corner buttons */}
+                            <div className="absolute top-1 right-1 flex flex-col gap-1">
+                              <button
+                                onClick={() =>
+                                  downloadImage(entry.sourceImage, 'source', 0)
+                                }
+                                className="bg-blue-500/80 hover:bg-blue-500 text-white p-1.5 rounded-full shadow-md transition-all hover:scale-110 pointer-events-auto"
+                                title="Download"
+                              >
+                                <Download className="w-3 h-3" />
+                              </button>
+                              {onAddToCollection && (
+                                <button
+                                  onClick={() => onAddToCollection(entry.sourceImage, `history-source-${entry.id}.jpg`)}
+                                  className="bg-green-500/80 hover:bg-green-500 text-white p-1 rounded-full shadow-md transition-all hover:scale-110 pointer-events-auto"
+                                  title="Add to Collection"
+                                >
+                                  <Plus className="w-2.5 h-2.5" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -173,24 +191,41 @@ export default function HistoryPanel({
                           <p className="text-slate-500 text-xs mb-1">
                             Result {idx + 1}
                           </p>
-                          <div className="relative flex items-center justify-center bg-slate-900/50 rounded border border-slate-600" style={{ minHeight: '64px', minWidth: '50px' }}>
+                          <div className="relative flex items-center justify-center bg-slate-900/50 rounded border border-slate-600 hover:border-green-500 transition-colors" style={{ minHeight: '64px', minWidth: '50px' }}>
                             <img
                               src={result}
                               alt={`Result ${idx + 1}`}
-                              className="h-16 object-contain rounded cursor-pointer hover:border-green-500 transition-colors"
+                              className="h-16 object-contain rounded cursor-pointer"
                               style={{ maxWidth: '100px' }}
                               onClick={() =>
                                 onImageClick(result, `Result ${idx + 1}`)
                               }
                             />
-                            <button
-                              onClick={() =>
-                                downloadImage(result, `history-${entry.id}`, idx)
-                              }
-                              className="absolute bottom-0 right-0 bg-green-500 hover:bg-green-600 text-white p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <Download className="w-2.5 h-2.5" />
-                            </button>
+                            
+                            {/* Overlay with actions */}
+                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded">
+                              {/* Top right corner buttons */}
+                              <div className="absolute top-1 right-1 flex flex-col gap-1">
+                                <button
+                                  onClick={() =>
+                                    downloadImage(result, `history-${entry.id}`, idx)
+                                  }
+                                  className="bg-blue-500/80 hover:bg-blue-500 text-white p-1.5 rounded-full shadow-md transition-all hover:scale-110 pointer-events-auto"
+                                  title="Download"
+                                >
+                                  <Download className="w-3 h-3" />
+                                </button>
+                                {onAddToCollection && (
+                                  <button
+                                    onClick={() => onAddToCollection(result, `history-${entry.id}-result-${idx + 1}.jpg`)}
+                                    className="bg-green-500/80 hover:bg-green-500 text-white p-1 rounded-full shadow-md transition-all hover:scale-110 pointer-events-auto"
+                                    title="Add to Collection"
+                                  >
+                                    <Plus className="w-2.5 h-2.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
