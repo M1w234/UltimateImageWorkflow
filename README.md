@@ -1,6 +1,8 @@
 # 🍌 Vision Studio Unleashed
 
-A powerful multi-mode AI image editing, generation, analysis, and video creation tool built with React + Vite.
+A powerful multi-mode AI creative suite for image editing, generation, analysis, and video creation. Use your own API keys for unlimited generation at API cost, not subscription prices.
+
+**Open-source • Self-hosted • Built with React + Vite**
 
 ## Features
 
