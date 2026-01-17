@@ -53,6 +53,7 @@ export const STORAGE_KEYS = {
   OPENAI_MODEL: 'openai_model',
   KLING_MODEL: 'kling_model',
   SOUND_VOLUME: 'sound_volume',
+  SHOW_LANDING_PAGE: 'show_landing_page',
   CUSTOM_PHOTO_SYSTEM_PROMPT: 'custom_photo_system_prompt',
   CUSTOM_VIDEO_SYSTEM_PROMPT: 'custom_video_system_prompt',
   CUSTOM_START_END_SYSTEM_PROMPT: 'custom_start_end_system_prompt',

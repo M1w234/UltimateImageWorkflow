@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 // Components
+import LandingPage from './LandingPage';
 import ApiKeySettings from './components/ApiKeySettings';
 import ImageModal from './components/ImageModal';
 import HistoryPanel from './components/HistoryPanel';
@@ -57,6 +58,13 @@ export default function App() {
   // ========================================
   // STATE
   // ========================================
+
+  // Landing Page Toggle
+  const [showLandingPage, setShowLandingPage] = useState(() => {
+    const saved = localStorage.getItem(STORAGE_KEYS.SHOW_LANDING_PAGE);
+    return saved === null ? true : saved === 'true'; // Default to true for first-time visitors
+  });
+  const [hasEnteredApp, setHasEnteredApp] = useState(false);
 
   // API Keys and Models
   const [apiKey, setApiKey] = useState('');
@@ -263,6 +271,19 @@ export default function App() {
     if (newValue !== 'off') {
       setTimeout(() => playChime(newValue), 50);
     }
+  };
+
+  // ========================================
+  // LANDING PAGE HANDLERS
+  // ========================================
+
+  const handleEnterApp = () => {
+    setHasEnteredApp(true);
+  };
+
+  const handleToggleLandingPage = (value) => {
+    setShowLandingPage(value);
+    localStorage.setItem(STORAGE_KEYS.SHOW_LANDING_PAGE, String(value));
   };
 
   // ========================================
@@ -544,6 +565,11 @@ export default function App() {
   // RENDER
   // ========================================
 
+  // Show landing page if enabled and user hasn't entered app yet
+  if (showLandingPage && !hasEnteredApp) {
+    return <LandingPage onEnterApp={handleEnterApp} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
       <div className="max-w-7xl mx-auto">
@@ -619,6 +645,9 @@ export default function App() {
             </div>
           </div>
 
+          <p className="text-slate-500 text-xs mb-2">
+            Hello World
+          </p>
           <p className="text-slate-500 text-xs mb-2">
             Created by:{' '}
             <a
@@ -924,6 +953,8 @@ export default function App() {
         klingModels={KLING_MODELS}
         imgbbKey={imgbbKey}
         onSaveImgbb={handleSaveImgbbKey}
+        showLandingPage={showLandingPage}
+        onToggleLandingPage={handleToggleLandingPage}
       />
     </div>
   );

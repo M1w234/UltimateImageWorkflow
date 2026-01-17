@@ -8,7 +8,8 @@ import {
   CheckCircle,
   Sparkles,
   Search,
-  Video
+  Video,
+  Home
 } from 'lucide-react';
 
 /**
@@ -37,7 +38,10 @@ export default function ApiKeySettings({
   klingModels,
   // ImgBB
   imgbbKey,
-  onSaveImgbb
+  onSaveImgbb,
+  // Landing Page
+  showLandingPage,
+  onToggleLandingPage
 }) {
   const [inputKey, setInputKey] = useState(apiKey || '');
   const [inputOpenaiKey, setInputOpenaiKey] = useState(openaiKey || '');
@@ -290,6 +294,33 @@ export default function ApiKeySettings({
                 </a>
                 {' '}- required for Kling image-to-video
               </p>
+            </div>
+          </div>
+
+          {/* General Preferences Section */}
+          <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
+            <h3 className="text-slate-300 font-semibold mb-3 flex items-center gap-2">
+              <Home className="w-4 h-4" /> General Preferences
+            </h3>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <p className="text-white text-sm font-medium mb-1">Show Landing Page</p>
+                <p className="text-slate-400 text-xs">
+                  Display the welcome page when opening the app
+                </p>
+              </div>
+              <button
+                onClick={() => onToggleLandingPage?.(!showLandingPage)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 focus:ring-offset-slate-800 ${
+                  showLandingPage ? 'bg-amber-500' : 'bg-slate-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    showLandingPage ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 
