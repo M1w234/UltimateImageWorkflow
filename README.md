@@ -1,4 +1,4 @@
-# MyAPI Studio 🔑
+# 🔑 MyAPI Studio
 
 A powerful multi-mode AI creative suite for image editing, generation, analysis, and video creation. Use your own API keys for unlimited generation at API cost, not subscription prices.
 
