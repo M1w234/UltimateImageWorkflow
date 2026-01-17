@@ -1,5 +1,5 @@
 /**
- * IndexedDB storage utility for Nana Banana Pro
+ * IndexedDB storage utility for MyAPI Studio
  * Handles all database operations for history, collection, and analysis
  */
 
@@ -25,7 +25,7 @@ export const initDB = () => {
     // Timeout after 10 seconds - if it takes longer, something is wrong
     const timeout = setTimeout(() => {
       console.error('❌ Database initialization timed out');
-      reject(new Error('Database initialization timed out. Click the Reset Storage button or run resetNanaBananaStorage() in console.'));
+      reject(new Error('Database initialization timed out. Click the Reset Storage button or run resetMyAPIStudioStorage() in console.'));
     }, 10000);
 
     try {
@@ -85,7 +85,7 @@ export const initDB = () => {
  * Emergency reset function - clears all data and reinitializes
  * Also exposed globally for console access
  */
-export const resetNanaBananaStorage = async () => {
+export const resetMyAPIStudioStorage = async () => {
   if (confirm('This will DELETE all your saved images, history, and collection. Continue?')) {
     try {
       if (db) {
@@ -114,8 +114,8 @@ export const resetNanaBananaStorage = async () => {
 
 // Expose reset function globally for console access
 if (typeof window !== 'undefined') {
-  window.resetNanaBananaStorage = resetNanaBananaStorage;
-  console.log('💡 If storage issues occur, run: resetNanaBananaStorage()');
+  window.resetMyAPIStudioStorage = resetMyAPIStudioStorage;
+  console.log('💡 If storage issues occur, run: resetMyAPIStudioStorage()');
 }
 
 /**

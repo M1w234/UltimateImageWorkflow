@@ -1,5 +1,5 @@
 /**
- * Image utilities for Nana Banana Pro
+ * Image utilities for MyAPI Studio
  * Handles image processing, conversion, and downloads
  */
 

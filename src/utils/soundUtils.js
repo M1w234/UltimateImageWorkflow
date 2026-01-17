@@ -1,5 +1,5 @@
 /**
- * Sound utilities for Nana Banana Pro
+ * Sound utilities for MyAPI Studio
  * Uses Web Audio API for pleasant chime sounds
  */
 

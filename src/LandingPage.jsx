@@ -8,21 +8,26 @@ export default function LandingPage({ onEnterApp }) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto text-center">
-        {/* Banana Icon */}
-        <div className="mb-8 flex justify-center">
-          <span className="text-7xl animate-bounce">🍌</span>
+        {/* Icon */}
+        <div className="mb-6 flex justify-center">
+          <span className="text-7xl animate-bounce">🔑</span>
         </div>
 
-        {/* Main Headline with Gradient */}
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 tracking-tight">
+        {/* Brand Name */}
+        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-4 tracking-tight">
           <span className="bg-gradient-to-br from-white to-slate-300 bg-clip-text text-transparent">
-            Open-Source AI Creative Suite for Your Own API Keys
+            MyAPI Studio
           </span>
         </h1>
 
-        {/* Subheadline */}
-        <p className="text-lg md:text-xl lg:text-2xl text-slate-300 mb-10 leading-relaxed max-w-3xl mx-auto">
-          Stop paying monthly subscriptions. Generate unlimited AI images and videos at API cost—typically 10-100x cheaper than subscription services.
+        {/* Tagline */}
+        <p className="text-xl md:text-2xl text-slate-400 font-semibold mb-6">
+          Open-source creative suite for Gemini, OpenAI & Kling AI
+        </p>
+
+        {/* Value Proposition */}
+        <p className="text-lg md:text-xl text-slate-300 mb-10 leading-relaxed max-w-3xl mx-auto">
+          Stop paying monthly subscriptions. Use your own API keys for unlimited AI image and video generation at API cost—typically 10-100x cheaper than subscription services.
         </p>
 
         {/* CTA Buttons */}
@@ -38,7 +43,7 @@ export default function LandingPage({ onEnterApp }) {
 
           {/* Secondary CTA */}
           <a
-            href="https://github.com/yourusername/vision-studio-unleashed"
+            href="https://github.com/M1w234/UltimateImageWorkflow"
             target="_blank"
             rel="noopener noreferrer"
             className="group px-8 py-4 border-2 border-amber-500 text-amber-500 hover:bg-amber-500/10 font-semibold rounded-lg transition-all duration-200 flex items-center gap-2 focus:outline-none focus:ring-4 focus:ring-amber-500/50 w-full sm:w-auto"
@@ -81,24 +86,6 @@ export default function LandingPage({ onEnterApp }) {
             <p className="text-slate-400 text-sm leading-relaxed">
               Everything runs locally in your browser. Your images never touch our servers.
             </p>
-          </div>
-        </div>
-
-        {/* Scroll Indicator */}
-        <div className="mt-16 opacity-50">
-          <p className="text-slate-500 text-xs mb-2">Scroll down to explore features</p>
-          <div className="animate-bounce">
-            <svg
-              className="w-6 h-6 mx-auto text-slate-500"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-            </svg>
           </div>
         </div>
       </div>
