@@ -10,7 +10,8 @@ import {
   Sparkles,
   Play,
   ArrowRight,
-  FileText
+  FileText,
+  Plus
 } from 'lucide-react';
 import { fileToBase64, filterImageFiles } from '../utils/imageUtils';
 import { 
@@ -94,6 +95,9 @@ export default function AnalyzeMode({
   // Video section sub-mode: 'standard' or 'startEnd'
   const [videoSubMode, setVideoSubMode] = useState('standard');
 
+  // Photo section sub-mode: 'standard' or 'multiPrompt'
+  const [photoSubMode, setPhotoSubMode] = useState('standard');
+
   // Start/End frame state (only for video mode)
   const [startEndState, setStartEndState] = useState({
     startFrame: null, // {id, base64, preview, fileName}
@@ -106,8 +110,19 @@ export default function AnalyzeMode({
     copied: false
   });
 
+  // Multi-Prompt state (only for photo mode)
+  const [multiPromptState, setMultiPromptState] = useState({
+    image: null, // {id, base64, preview, fileName}
+    prompts: [{ id: generateUniqueId(), text: '', generatedOutput: '', isGenerating: false, error: null, copied: false }],
+    selectedModel: null,
+    globalError: null,
+    isGeneratingAll: false,
+    currentProcessingIndex: -1
+  });
+
   // Shared states (not mode-specific)
   const [dragActive, setDragActive] = useState(false);
+  const [dragActiveMultiPrompt, setDragActiveMultiPrompt] = useState(false);
   const [isGeneratingAll, setIsGeneratingAll] = useState(false);
 
   // Get current state based on mode
@@ -617,6 +632,57 @@ Generate a video transition prompt that describes how to animate from the start 
         </div>
       </div>
 
+      {/* Photo Sub-mode Toggle (Standard vs Multi-Prompt) */}
+      {mode === 'photo' && (
+        <div className="flex justify-center">
+          <div className="inline-flex bg-slate-700 rounded-lg p-1">
+            <button
+              onClick={() => {
+                setPhotoSubMode('standard');
+                // Clear multi-prompt state when switching to standard
+                if (photoSubMode === 'multiPrompt') {
+                  setMultiPromptState({
+                    image: null,
+                    prompts: [{ id: generateUniqueId(), text: '', generatedOutput: '', isGenerating: false, error: null, copied: false }],
+                    selectedModel: null,
+                    globalError: null,
+                    isGeneratingAll: false,
+                    currentProcessingIndex: -1
+                  });
+                }
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                photoSubMode === 'standard'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Multi-Image
+            </button>
+            <button
+              onClick={() => {
+                setPhotoSubMode('multiPrompt');
+                // Clear standard photo images when switching to multi-prompt
+                if (photoSubMode === 'standard') {
+                  setPhotoState({
+                    images: [],
+                    userInstruction: '',
+                    globalError: null
+                  });
+                }
+              }}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                photoSubMode === 'multiPrompt'
+                  ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
+                  : 'text-slate-300 hover:text-white'
+              }`}
+            >
+              Multi-Prompt
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Video Sub-mode Toggle (Standard vs Start/End Frames) */}
       {mode === 'video' && (
         <div className="flex justify-center">
@@ -671,7 +737,7 @@ Generate a video transition prompt that describes how to animate from the start 
       )}
 
       {/* Standard Mode UI (Single Image Analysis) */}
-      {(mode === 'photo' || (mode === 'video' && videoSubMode === 'standard')) && (
+      {((mode === 'photo' && photoSubMode === 'standard') || (mode === 'video' && videoSubMode === 'standard')) && (
         <>
           {/* Upload Area */}
           <div
@@ -707,24 +773,24 @@ Generate a video transition prompt that describes how to animate from the start 
         </div>
       </div>
 
-      {/* Text Description Field - Always visible */}
-      <div className="mb-4">
-        <label className="block text-white font-medium mb-2">
-          Description {images.length === 0 ? '(Required without images)' : '(Optional with images)'}
-        </label>
-        <textarea
-          value={textDescription}
-          onChange={(e) => setTextDescription(e.target.value)}
-          placeholder="Describe what you want to generate (e.g., 'A serene mountain landscape at sunset with a calm lake reflection')"
-          className="w-full bg-slate-900 text-white rounded-lg p-4 border border-slate-600 focus:border-amber-500 focus:outline-none resize-none"
-          rows={4}
-        />
-        <p className="text-slate-400 text-xs mt-1">
-          {images.length === 0 
-            ? 'Enter a description to generate a prompt without uploading images'
-            : 'Optional: Provide additional context for your images'}
-        </p>
-      </div>
+      {/* Text Description Field - Only visible when no images */}
+      {images.length === 0 && (
+        <div className="mb-4">
+          <label className="block text-white font-medium mb-2">
+            Description (Required without images)
+          </label>
+          <textarea
+            value={textDescription}
+            onChange={(e) => setTextDescription(e.target.value)}
+            placeholder="Describe what you want to generate (e.g., 'A serene mountain landscape at sunset with a calm lake reflection')"
+            className="w-full bg-slate-900 text-white rounded-lg p-4 border border-slate-600 focus:border-amber-500 focus:outline-none resize-none"
+            rows={4}
+          />
+          <p className="text-slate-400 text-xs mt-1">
+            Enter a description to generate a prompt without uploading images
+          </p>
+        </div>
+      )}
 
       {/* Text-Only Generation Section */}
       {images.length === 0 && textDescription.trim() && (
@@ -976,7 +1042,7 @@ Generate a video transition prompt that describes how to animate from the start 
             >
               {/* Card Header: Image Preview + Filename + Remove */}
               <div className="flex items-start gap-4 mb-4">
-                <div className="relative group flex-shrink-0">
+                <div className="relative flex-shrink-0">
                   <img
                     src={img.preview}
                     alt={img.fileName}
@@ -984,10 +1050,14 @@ Generate a video transition prompt that describes how to animate from the start 
                     onClick={() => onImageClick(img.preview, img.fileName)}
                   />
                   <button
-                    onClick={() => removeImage(img.id)}
-                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeImage(img.id);
+                    }}
+                    className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white p-1.5 rounded-full shadow-lg transition-all hover:scale-110"
+                    title="Remove image"
                   >
-                    <X className="w-3 h-3" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1133,6 +1203,425 @@ Generate a video transition prompt that describes how to animate from the start 
         </div>
       )}
         </>
+      )}
+
+      {/* Multi-Prompt Mode UI */}
+      {mode === 'photo' && photoSubMode === 'multiPrompt' && (
+        <div className="space-y-4">
+          {/* Header with info */}
+          <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg p-4">
+            <h3 className="text-teal-400 font-semibold mb-2">Multi-Prompt Analysis</h3>
+            <p className="text-slate-300 text-sm">
+              Upload a single image and run multiple different prompts against it to generate multiple outputs.
+            </p>
+          </div>
+
+          {/* Image Upload Section */}
+          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+            <label className="block text-white font-medium mb-3">Upload Image</label>
+            {multiPromptState.image ? (
+              <div className="relative inline-block">
+                <img
+                  src={multiPromptState.image.preview}
+                  alt="Multi-Prompt Image"
+                  className="max-h-48 rounded-lg cursor-pointer hover:opacity-80"
+                  onClick={() => onImageClick(multiPromptState.image.preview, multiPromptState.image.fileName)}
+                />
+                <button
+                  onClick={() => setMultiPromptState(prev => ({ ...prev, image: null }))}
+                  className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-lg"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  dragActiveMultiPrompt
+                    ? 'border-teal-500 bg-teal-500/10'
+                    : 'border-slate-600 hover:border-teal-500/50'
+                }`}
+                onClick={() => document.getElementById('multiPromptImageInput')?.click()}
+                onDragEnter={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDragActiveMultiPrompt(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDragActiveMultiPrompt(false);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setDragActiveMultiPrompt(false);
+
+                  const files = filterImageFiles(e.dataTransfer.files);
+                  if (files.length === 0) return;
+
+                  const file = files[0]; // Only take the first file
+                  const { base64, preview } = await fileToBase64(file);
+                  setMultiPromptState(prev => ({
+                    ...prev,
+                    image: {
+                      id: generateUniqueId(),
+                      base64,
+                      preview,
+                      fileName: file.name
+                    }
+                  }));
+                  onAddToCollection(preview, file.name);
+                }}
+              >
+                <input
+                  id="multiPromptImageInput"
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const { base64, preview } = await fileToBase64(file);
+                      setMultiPromptState(prev => ({
+                        ...prev,
+                        image: {
+                          id: generateUniqueId(),
+                          base64,
+                          preview,
+                          fileName: file.name
+                        }
+                      }));
+                      onAddToCollection(preview, file.name);
+                    }
+                    e.target.value = '';
+                  }}
+                />
+                <Upload className="w-10 h-10 text-teal-500 mx-auto mb-3" />
+                <p className="text-teal-400 font-medium">Upload Image</p>
+                <p className="text-slate-400 text-sm mt-1">Drop image here or click to select</p>
+              </div>
+            )}
+          </div>
+
+          {/* Model Profile Selection */}
+          {multiPromptState.image && (
+            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+              <label className="block text-white font-medium mb-3">Model Profile (applies to all prompts)</label>
+              <div className="flex gap-2 flex-wrap">
+                {Object.entries(modelProfiles).map(([key, profile]) => (
+                  <button
+                    key={key}
+                    onClick={() => setMultiPromptState(prev => ({ ...prev, selectedModel: key }))}
+                    disabled={multiPromptState.isGeneratingAll}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                      multiPromptState.selectedModel === key
+                        ? 'bg-teal-500 text-white shadow-lg'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                    } ${multiPromptState.isGeneratingAll ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    {profile.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Prompts Section */}
+          {multiPromptState.image && multiPromptState.selectedModel && (
+            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-white font-medium">Prompts</label>
+                <button
+                  onClick={() => {
+                    setMultiPromptState(prev => ({
+                      ...prev,
+                      prompts: [
+                        ...prev.prompts,
+                        { id: generateUniqueId(), text: '', generatedOutput: '', isGenerating: false, error: null, copied: false }
+                      ]
+                    }));
+                  }}
+                  disabled={multiPromptState.isGeneratingAll}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium bg-teal-500 hover:bg-teal-600 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Prompt
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {multiPromptState.prompts.map((prompt, index) => (
+                  <div key={prompt.id} className="bg-slate-900 rounded-lg p-3 border border-slate-600">
+                    <div className="flex items-start gap-2 mb-2">
+                      <span className="text-slate-400 text-sm font-medium mt-2">#{index + 1}</span>
+                      <textarea
+                        value={prompt.text}
+                        onChange={(e) => {
+                          setMultiPromptState(prev => ({
+                            ...prev,
+                            prompts: prev.prompts.map(p =>
+                              p.id === prompt.id ? { ...p, text: e.target.value } : p
+                            )
+                          }));
+                        }}
+                        placeholder="Enter your prompt/instruction (e.g., 'focus on lighting and composition')"
+                        className="flex-1 bg-slate-800 text-white rounded-lg p-2 border border-slate-600 focus:border-teal-500 focus:outline-none resize-none"
+                        rows={2}
+                        disabled={multiPromptState.isGeneratingAll}
+                      />
+                      {multiPromptState.prompts.length > 1 && (
+                        <button
+                          onClick={() => {
+                            setMultiPromptState(prev => ({
+                              ...prev,
+                              prompts: prev.prompts.filter(p => p.id !== prompt.id)
+                            }));
+                          }}
+                          disabled={multiPromptState.isGeneratingAll}
+                          className="text-red-400 hover:text-red-300 p-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Remove prompt"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Show loading state for this prompt */}
+                    {prompt.isGenerating && (
+                      <div className="flex items-center gap-2 text-teal-400 text-sm">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Generating...
+                      </div>
+                    )}
+
+                    {/* Show error for this prompt */}
+                    {prompt.error && (
+                      <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-2 text-red-300 text-sm">
+                        {prompt.error}
+                      </div>
+                    )}
+
+                    {/* Show generated output for this prompt */}
+                    {prompt.generatedOutput && !prompt.isGenerating && (
+                      <div className="mt-3 pt-3 border-t border-slate-700">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-teal-400 font-medium flex items-center gap-2 text-sm">
+                            <Sparkles className="w-4 h-4" />
+                            Generated Output
+                          </span>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await navigator.clipboard.writeText(prompt.generatedOutput);
+                                  setMultiPromptState(prev => ({
+                                    ...prev,
+                                    prompts: prev.prompts.map(p =>
+                                      p.id === prompt.id ? { ...p, copied: true } : p
+                                    )
+                                  }));
+                                  setTimeout(() => {
+                                    setMultiPromptState(prev => ({
+                                      ...prev,
+                                      prompts: prev.prompts.map(p =>
+                                        p.id === prompt.id ? { ...p, copied: false } : p
+                                      )
+                                    }));
+                                  }, 2000);
+                                } catch (err) {
+                                  console.error('Failed to copy:', err);
+                                }
+                              }}
+                              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+                                prompt.copied
+                                  ? 'bg-green-500 text-white'
+                                  : 'bg-teal-500 hover:bg-teal-600 text-white'
+                              }`}
+                            >
+                              {prompt.copied ? (
+                                <>
+                                  <Check className="w-3 h-3" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  Copy
+                                </>
+                              )}
+                            </button>
+                            {getTransferHandler() && (
+                              <button
+                                onClick={() => getTransferHandler()({ preview: multiPromptState.image.preview, prompt: prompt.generatedOutput })}
+                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium bg-purple-500 hover:bg-purple-600 text-white transition-all"
+                              >
+                                <ArrowRight className="w-3 h-3" />
+                                To Editor
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="bg-slate-800 rounded-lg p-3 border border-slate-600">
+                          <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">
+                            {prompt.generatedOutput}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Generate All Button */}
+          {multiPromptState.image && multiPromptState.selectedModel && multiPromptState.prompts.some(p => p.text.trim()) && (
+            <button
+              onClick={async () => {
+                if (!apiKey) {
+                  onOpenSettings();
+                  return;
+                }
+
+                const promptsToProcess = multiPromptState.prompts.filter(p => p.text.trim() && !p.generatedOutput);
+                if (promptsToProcess.length === 0) {
+                  setMultiPromptState(prev => ({ ...prev, globalError: 'All prompts have already been generated or are empty.' }));
+                  return;
+                }
+
+                setMultiPromptState(prev => ({ ...prev, isGeneratingAll: true, globalError: null }));
+
+                // Process prompts sequentially
+                for (let i = 0; i < promptsToProcess.length; i++) {
+                  const prompt = promptsToProcess[i];
+                  
+                  // Set this prompt as generating
+                  setMultiPromptState(prev => ({
+                    ...prev,
+                    currentProcessingIndex: i,
+                    prompts: prev.prompts.map(p =>
+                      p.id === prompt.id ? { ...p, isGenerating: true, error: null } : p
+                    )
+                  }));
+
+                  try {
+                    const selectedProfile = modelProfiles[multiPromptState.selectedModel];
+                    const effectiveSystemPrompt = selectedProfile?.systemPrompt || systemPrompt;
+                    
+                    const result = await generateImagePrompt(
+                      apiKey,
+                      multiPromptState.image.base64,
+                      prompt.text,
+                      effectiveSystemPrompt
+                    );
+
+                    setMultiPromptState(prev => ({
+                      ...prev,
+                      prompts: prev.prompts.map(p =>
+                        p.id === prompt.id ? { ...p, generatedOutput: result, isGenerating: false } : p
+                      )
+                    }));
+                  } catch (err) {
+                    setMultiPromptState(prev => ({
+                      ...prev,
+                      prompts: prev.prompts.map(p =>
+                        p.id === prompt.id ? { ...p, error: err.message || 'Failed to generate', isGenerating: false } : p
+                      )
+                    }));
+                  }
+                }
+
+                setMultiPromptState(prev => ({ ...prev, isGeneratingAll: false, currentProcessingIndex: -1 }));
+
+                // Save to history
+                const promptsWithOutputs = multiPromptState.prompts.filter(p => p.generatedOutput);
+                if (promptsWithOutputs.length > 0) {
+                  try {
+                    await saveAnalysisHistory({
+                      mode: 'photo-multi-prompt',
+                      images: [{ preview: multiPromptState.image.preview, fileName: multiPromptState.image.fileName }],
+                      prompts: promptsWithOutputs.map(p => ({ text: p.text, output: p.generatedOutput })),
+                      modelProfile: multiPromptState.selectedModel
+                    });
+                    await loadHistory();
+                  } catch (error) {
+                    console.error('Failed to save to history:', error);
+                  }
+                }
+              }}
+              disabled={multiPromptState.isGeneratingAll}
+              className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 disabled:from-slate-600 disabled:to-slate-600 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-3"
+            >
+              {multiPromptState.isGeneratingAll ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  Generating {multiPromptState.currentProcessingIndex >= 0 ? `(${multiPromptState.currentProcessingIndex + 1} of ${multiPromptState.prompts.filter(p => p.text.trim() && !p.generatedOutput).length})` : '...'}
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-6 h-6" />
+                  Generate All Prompts
+                </>
+              )}
+            </button>
+          )}
+
+          {/* Global Error */}
+          {multiPromptState.globalError && (
+            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 text-red-300">
+              {multiPromptState.globalError}
+            </div>
+          )}
+
+          {/* Transfer All Button */}
+          {getBatchTransferHandler() && multiPromptState.prompts.filter(p => p.generatedOutput).length > 1 && (
+            <button
+              onClick={() => {
+                const handler = getBatchTransferHandler();
+                const promptsWithOutputs = multiPromptState.prompts.filter(p => p.generatedOutput);
+                
+                const batch = promptsWithOutputs.map(p => ({
+                  preview: multiPromptState.image.preview,
+                  prompt: p.generatedOutput
+                }));
+                
+                handler(batch);
+              }}
+              className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold py-4 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-3"
+            >
+              <ArrowRight className="w-6 h-6" />
+              Transfer All to Editor ({multiPromptState.prompts.filter(p => p.generatedOutput).length} outputs)
+            </button>
+          )}
+
+          {/* Clear All Button */}
+          {(multiPromptState.image || multiPromptState.prompts.some(p => p.text || p.generatedOutput)) && (
+            <button
+              onClick={() => {
+                if (confirm('Clear all data in Multi-Prompt mode? This will remove the image and all prompts.')) {
+                  setMultiPromptState({
+                    image: null,
+                    prompts: [{ id: generateUniqueId(), text: '', generatedOutput: '', isGenerating: false, error: null, copied: false }],
+                    selectedModel: null,
+                    globalError: null,
+                    isGeneratingAll: false,
+                    currentProcessingIndex: -1
+                  });
+                }
+              }}
+              disabled={multiPromptState.isGeneratingAll}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all text-sm font-medium border border-red-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <X className="w-4 h-4" />
+              Clear All
+            </button>
+          )}
+        </div>
       )}
 
       {/* Start/End Frame Workflow UI */}
@@ -1377,20 +1866,31 @@ Generate a video transition prompt that describes how to animate from the start 
         }}
         onPushToEditor={(item) => {
           // Push to appropriate destination based on mode
-          const handler = item.mode === 'video' || item.mode === 'video-start-end' 
-            ? onTransferToVideo 
-            : onTransferToEditor;
-          
-          if (item.images.length === 1) {
-            handler({ preview: item.images[0].preview, prompt: item.prompt });
+          if (item.mode === 'photo-multi-prompt') {
+            // Multi-prompt: transfer all as batch to editor
+            const batch = item.prompts.map(p => ({
+              preview: item.images[0].preview,
+              prompt: p.output
+            }));
+            onTransferBatchToEditor(batch);
+          } else if (item.mode === 'video' || item.mode === 'video-start-end') {
+            // Video modes
+            if (item.images.length === 1) {
+              onTransferToVideo({ preview: item.images[0].preview, prompt: item.prompt });
+            } else {
+              // For start/end frames
+              onTransferToVideo({
+                startFrame: item.images[0].preview,
+                endFrame: item.images[1].preview,
+                prompt: item.prompt,
+                isStartEndMode: true
+              });
+            }
           } else {
-            // For start/end frames
-            onTransferToVideo({
-              startFrame: item.images[0].preview,
-              endFrame: item.images[1].preview,
-              prompt: item.prompt,
-              isStartEndMode: true
-            });
+            // Photo mode (single prompt)
+            if (item.images.length === 1) {
+              onTransferToEditor({ preview: item.images[0].preview, prompt: item.prompt });
+            }
           }
         }}
         onImageClick={onImageClick}

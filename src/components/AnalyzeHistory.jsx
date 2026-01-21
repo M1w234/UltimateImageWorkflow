@@ -41,16 +41,20 @@ const getProfileName = (profileKey) => {
 function HistoryCard({ item, onDelete, onPushToEditor, onImageClick }) {
   const [showFullPrompt, setShowFullPrompt] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [expandedPrompts, setExpandedPrompts] = useState({});
+  const [copiedPrompts, setCopiedPrompts] = useState({});
+  
   const isPhotoMode = item.mode === 'photo';
   const isStartEnd = item.mode === 'video-start-end';
-  const accentColor = isPhotoMode ? 'amber' : 'purple';
+  const isMultiPrompt = item.mode === 'photo-multi-prompt';
+  const accentColor = isPhotoMode ? 'amber' : (isMultiPrompt ? 'teal' : 'purple');
   
-  // Truncate prompt for preview
-  const promptPreview = item.prompt.length > 150 
+  // Truncate prompt for preview (for single prompt items)
+  const promptPreview = item.prompt && item.prompt.length > 150 
     ? item.prompt.substring(0, 150) + '...'
     : item.prompt;
 
-  // Copy prompt to clipboard
+  // Copy prompt to clipboard (for single prompt items)
   const handleCopyPrompt = async () => {
     try {
       await navigator.clipboard.writeText(item.prompt);
@@ -61,18 +65,31 @@ function HistoryCard({ item, onDelete, onPushToEditor, onImageClick }) {
     }
   };
 
+  // Copy individual multi-prompt output to clipboard
+  const handleCopyMultiPrompt = async (promptId, output) => {
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopiedPrompts(prev => ({ ...prev, [promptId]: true }));
+      setTimeout(() => {
+        setCopiedPrompts(prev => ({ ...prev, [promptId]: false }));
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to copy prompt:', err);
+    }
+  };
+
   return (
     <div className="bg-slate-800/50 rounded-lg border border-slate-700 hover:border-slate-600 transition-all overflow-hidden">
       {/* Header with mode badge */}
       <div className="flex items-center justify-between p-3 border-b border-slate-700">
         <div className="flex items-center gap-2">
-          {isPhotoMode ? (
-            <Camera className="w-4 h-4 text-amber-400" />
+          {isPhotoMode || isMultiPrompt ? (
+            <Camera className={`w-4 h-4 ${isMultiPrompt ? 'text-teal-400' : 'text-amber-400'}`} />
           ) : (
             <Video className="w-4 h-4 text-purple-400" />
           )}
-          <span className={`text-xs font-semibold ${isPhotoMode ? 'text-amber-400' : 'text-purple-400'}`}>
-            {isPhotoMode ? 'Photo' : isStartEnd ? 'Video (Start/End)' : 'Video'}
+          <span className={`text-xs font-semibold ${isMultiPrompt ? 'text-teal-400' : (isPhotoMode ? 'text-amber-400' : 'text-purple-400')}`}>
+            {isMultiPrompt ? 'Photo (Multi-Prompt)' : (isPhotoMode ? 'Photo' : isStartEnd ? 'Video (Start/End)' : 'Video')}
           </span>
           {item.modelProfile && (
             <span className="text-xs text-slate-400">
@@ -117,47 +134,117 @@ function HistoryCard({ item, onDelete, onPushToEditor, onImageClick }) {
           </div>
         )}
 
-        {/* Prompt */}
-        <div className="bg-slate-900 rounded-lg p-3 mb-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <ImageIcon className="w-3 h-3 text-slate-400" />
-              <span className="text-xs font-medium text-slate-400">Generated Prompt</span>
+        {/* Prompt(s) */}
+        {isMultiPrompt && item.prompts ? (
+          // Multi-Prompt Display
+          <div className="space-y-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
+              <ImageIcon className="w-3 h-3 text-teal-400" />
+              <span className="text-xs font-medium text-teal-400">
+                {item.prompts.length} Prompt{item.prompts.length !== 1 ? 's' : ''} Generated
+              </span>
             </div>
-            <button
-              onClick={handleCopyPrompt}
-              className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
-                copied
-                  ? 'bg-green-500 text-white'
-                  : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-              title="Copy prompt"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3 h-3" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3 h-3" />
-                  Copy
-                </>
-              )}
-            </button>
+            {item.prompts.map((prompt, idx) => {
+              const promptId = `${item.id}-${idx}`;
+              const isExpanded = expandedPrompts[promptId];
+              const isCopied = copiedPrompts[promptId];
+              const outputPreview = prompt.output.length > 100 
+                ? prompt.output.substring(0, 100) + '...'
+                : prompt.output;
+
+              return (
+                <div key={idx} className="bg-slate-900 rounded-lg p-3 border border-slate-700">
+                  {/* Prompt Input */}
+                  <div className="mb-2">
+                    <span className="text-xs text-slate-500">Prompt #{idx + 1}: </span>
+                    <span className="text-xs text-slate-300 italic">{prompt.text}</span>
+                  </div>
+                  
+                  {/* Generated Output */}
+                  <div className="bg-slate-800 rounded p-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs text-slate-500">Output:</span>
+                      <button
+                        onClick={() => handleCopyMultiPrompt(promptId, prompt.output)}
+                        className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-all ${
+                          isCopied
+                            ? 'bg-green-500 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600 hover:text-white'
+                        }`}
+                        title="Copy output"
+                      >
+                        {isCopied ? (
+                          <>
+                            <Check className="w-3 h-3" />
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-slate-200 text-xs leading-relaxed whitespace-pre-wrap">
+                      {isExpanded ? prompt.output : outputPreview}
+                    </p>
+                    {prompt.output.length > 100 && (
+                      <button
+                        onClick={() => setExpandedPrompts(prev => ({ ...prev, [promptId]: !prev[promptId] }))}
+                        className="text-xs text-blue-400 hover:text-blue-300 mt-1"
+                      >
+                        {isExpanded ? 'Show Less' : 'Show More'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">
-            {showFullPrompt ? item.prompt : promptPreview}
-          </p>
-          {item.prompt.length > 150 && (
-            <button
-              onClick={() => setShowFullPrompt(!showFullPrompt)}
-              className="text-xs text-blue-400 hover:text-blue-300 mt-2"
-            >
-              {showFullPrompt ? 'Show Less' : 'Show More'}
-            </button>
-          )}
-        </div>
+        ) : (
+          // Single Prompt Display
+          <div className="bg-slate-900 rounded-lg p-3 mb-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="w-3 h-3 text-slate-400" />
+                <span className="text-xs font-medium text-slate-400">Generated Prompt</span>
+              </div>
+              <button
+                onClick={handleCopyPrompt}
+                className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all ${
+                  copied
+                    ? 'bg-green-500 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`}
+                title="Copy prompt"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3 h-3" />
+                    Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3" />
+                    Copy
+                  </>
+                )}
+              </button>
+            </div>
+            <p className="text-slate-200 text-sm leading-relaxed whitespace-pre-wrap">
+              {showFullPrompt ? item.prompt : promptPreview}
+            </p>
+            {item.prompt && item.prompt.length > 150 && (
+              <button
+                onClick={() => setShowFullPrompt(!showFullPrompt)}
+                className="text-xs text-blue-400 hover:text-blue-300 mt-2"
+              >
+                {showFullPrompt ? 'Show Less' : 'Show More'}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* User Instruction (if exists) */}
         {item.userInstruction && (
@@ -172,13 +259,16 @@ function HistoryCard({ item, onDelete, onPushToEditor, onImageClick }) {
           <button
             onClick={() => onPushToEditor(item)}
             className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-gradient-to-r ${
-              isPhotoMode
-                ? 'from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600'
-                : 'from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600'
+              isMultiPrompt
+                ? 'from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600'
+                : (isPhotoMode
+                  ? 'from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600'
+                  : 'from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600')
             } text-white transition-all`}
           >
             <ArrowRight className="w-4 h-4" />
-            Push to {isPhotoMode ? 'Editor' : 'Video'}
+            Push to {isPhotoMode || isMultiPrompt ? 'Editor' : 'Video'}
+            {isMultiPrompt && ` (${item.prompts.length})`}
           </button>
           <button
             onClick={() => onDelete(item.id)}
