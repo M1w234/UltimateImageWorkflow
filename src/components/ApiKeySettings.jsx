@@ -47,7 +47,7 @@ export default function ApiKeySettings({
   const [inputOpenaiKey, setInputOpenaiKey] = useState(openaiKey || '');
   const [inputKlingKey, setInputKlingKey] = useState(klingKey || '');
   const [inputImgbbKey, setInputImgbbKey] = useState(imgbbKey || '');
-  const [inputModel, setInputModel] = useState(selectedModel || 'gemini-2.0-flash-exp-image-generation');
+  const [inputModel, setInputModel] = useState(selectedModel || 'gemini-3-pro-image-preview');
   const [inputOpenaiModel, setInputOpenaiModel] = useState(openaiModel || 'gpt-5.2');
   const [inputKlingModel, setInputKlingModel] = useState(klingModel || '2.6');
   const [showKey, setShowKey] = useState(false);
@@ -62,7 +62,7 @@ export default function ApiKeySettings({
     setInputOpenaiKey(openaiKey || '');
     setInputKlingKey(klingKey || '');
     setInputImgbbKey(imgbbKey || '');
-    setInputModel(selectedModel || 'gemini-2.0-flash-exp-image-generation');
+    setInputModel(selectedModel || 'gemini-3-pro-image-preview');
     setInputOpenaiModel(openaiModel || 'gpt-5.2');
     setInputKlingModel(klingModel || '2.6');
   }, [apiKey, openaiKey, klingKey, imgbbKey, selectedModel, openaiModel, klingModel]);

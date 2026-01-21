@@ -44,6 +44,7 @@ export default function EditMode({
   pendingPrompt,
   pendingTransferId,
   pendingBatch,
+  pendingSettings,
   onClearPendingImage
 }) {
   // Image slots state
@@ -100,31 +101,34 @@ export default function EditMode({
       // Strip data URI prefix to get raw base64 for API calls
       const rawBase64 = pendingImage.split(',')[1] || pendingImage;
       
+      // Prepare update object with settings if provided
+      const updateData = {
+        image: rawBase64,
+        imagePreview: pendingImage,
+        prompt: pendingPrompt || '',
+        error: null,
+        result: null,
+        results: []
+      };
+
+      // Apply settings if provided
+      if (pendingSettings) {
+        if (pendingSettings.aspectRatio) updateData.aspectRatio = pendingSettings.aspectRatio;
+        if (pendingSettings.resolution) updateData.resolution = pendingSettings.resolution;
+        if (pendingSettings.variations) updateData.variations = pendingSettings.variations;
+      }
+      
       // Find first empty slot
       const emptyIndex = images.findIndex(img => !img.image);
       if (emptyIndex !== -1) {
-        updateImage(emptyIndex, {
-          image: rawBase64,
-          imagePreview: pendingImage,
-          prompt: pendingPrompt || '',
-          error: null,
-          result: null,
-          results: []
-        });
+        updateImage(emptyIndex, updateData);
       } else {
         // All slots are full, try to expand if possible
         if (visibleSlots < MAX_SLOTS) {
           const newSlotIndex = visibleSlots;
           setVisibleSlots(prev => prev + 1);
           setTimeout(() => {
-            updateImage(newSlotIndex, {
-              image: rawBase64,
-              imagePreview: pendingImage,
-              prompt: pendingPrompt || '',
-              error: null,
-              result: null,
-              results: []
-            });
+            updateImage(newSlotIndex, updateData);
           }, 0);
         }
       }
@@ -167,7 +171,8 @@ export default function EditMode({
               // Strip data URI prefix to get raw base64 for API calls
               const rawBase64 = item.preview.split(',')[1] || item.preview;
               
-              newImages[targetIndex] = {
+              // Prepare update object
+              const updateData = {
                 ...newImages[targetIndex],
                 image: rawBase64,
                 imagePreview: item.preview,
@@ -176,6 +181,15 @@ export default function EditMode({
                 result: null,
                 results: []
               };
+
+              // Apply settings if provided
+              if (pendingSettings) {
+                if (pendingSettings.aspectRatio) updateData.aspectRatio = pendingSettings.aspectRatio;
+                if (pendingSettings.resolution) updateData.resolution = pendingSettings.resolution;
+                if (pendingSettings.variations) updateData.variations = pendingSettings.variations;
+              }
+
+              newImages[targetIndex] = updateData;
             }
           });
           
@@ -256,6 +270,31 @@ export default function EditMode({
       return newImages;
     });
     setVisibleSlots(prev => prev - 1);
+  };
+
+  // Clear all slots
+  const clearAllSlots = () => {
+    if (confirm('Clear all image slots? This will remove all images and results.')) {
+      setImages(
+        Array(MAX_SLOTS)
+          .fill(null)
+          .map((_, idx) => ({
+            id: idx,
+            image: null,
+            imagePreview: null,
+            prompt: '',
+            aspectRatio: 'auto',
+            resolution: '4K',
+            variations: 1,
+            loading: false,
+            result: null,
+            results: [],
+            error: null,
+            fromAnalysis: false
+          }))
+      );
+      setVisibleSlots(1);
+    }
   };
 
   // Handle drag events for individual slots
@@ -848,15 +887,26 @@ export default function EditMode({
       </div>
 
       {/* STATUS BAR */}
-      <div className="flex items-center justify-center gap-8 py-3 bg-slate-800/30 rounded-lg border border-slate-700">
-        <div className="flex items-center gap-2">
-          <Upload className="w-4 h-4 text-blue-400" />
-          <span className="text-slate-300 font-medium">{getActiveCount()} Ready</span>
+      <div className="flex items-center justify-between py-3 px-4 bg-slate-800/30 rounded-lg border border-slate-700">
+        <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2">
+            <Upload className="w-4 h-4 text-blue-400" />
+            <span className="text-slate-300 font-medium">{getActiveCount()} Ready</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 text-green-400" />
+            <span className="text-slate-300 font-medium">{getCompletedCount()} Completed</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-green-400" />
-          <span className="text-slate-300 font-medium">{getCompletedCount()} Completed</span>
-        </div>
+        {visibleSlots > 1 && (
+          <button
+            onClick={clearAllSlots}
+            className="text-slate-400 hover:text-red-400 text-sm flex items-center gap-1 transition-colors"
+            title="Clear all slots"
+          >
+            <X className="w-4 h-4" /> Clear All
+          </button>
+        )}
       </div>
 
       {/* IMAGE SLOTS SECTION - Left/Right Layout */}

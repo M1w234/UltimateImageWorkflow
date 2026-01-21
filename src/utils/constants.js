@@ -32,7 +32,7 @@ export const KLING_MODELS = [
 ];
 
 // Default model selections
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash-exp-image-generation';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3-pro-image-preview';
 export const DEFAULT_OPENAI_MODEL = 'gpt-5.2';
 export const DEFAULT_KLING_MODEL = '2.6';
 
@@ -59,6 +59,7 @@ export const STORAGE_KEYS = {
   CUSTOM_START_END_SYSTEM_PROMPT: 'custom_start_end_system_prompt',
   CUSTOM_PHOTO_PROFILES: 'custom_photo_profiles',
   CUSTOM_VIDEO_PROFILES: 'custom_video_profiles',
+  TRANSFER_SETTINGS: 'transfer_settings',
 };
 
 // Aspect ratio options

@@ -19,6 +19,7 @@ import {
 import LandingPage from './LandingPage';
 import ApiKeySettings from './components/ApiKeySettings';
 import ImageModal from './components/ImageModal';
+import TransferSettingsModal from './components/TransferSettingsModal';
 import HistoryPanel from './components/HistoryPanel';
 import CollectionPanel from './components/CollectionPanel';
 import AnalyzeMode from './components/AnalyzeMode';
@@ -111,6 +112,12 @@ export default function App() {
   const [pendingBatch, setPendingBatch] = useState(null);
   const [pendingVideoBatch, setPendingVideoBatch] = useState(null);
   const [pendingEndFrame, setPendingEndFrame] = useState(null);
+  const [pendingSettings, setPendingSettings] = useState(null);
+
+  // Transfer Settings Modal
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
+  const [pendingTransferData, setPendingTransferData] = useState(null);
+  const [transferType, setTransferType] = useState('single'); // 'single' or 'batch'
 
   // ========================================
   // INITIALIZATION
@@ -520,21 +527,54 @@ export default function App() {
     }
   };
 
-  // Transfer analysis result to editor
+  // Transfer analysis result to editor - Show modal for settings
   const transferToEditor = ({ preview, prompt }) => {
-    // Set pending image and prompt, then switch to edit mode
-    setPendingImage(preview);
-    setPendingPrompt(prompt || '');
-    setPendingTransferId(Date.now()); // Unique ID for each transfer
-    setPendingMode('edit');
-    setMode('edit');
+    setPendingTransferData({ preview, prompt });
+    setTransferType('single');
+    setTransferModalOpen(true);
   };
 
-  // Transfer batch of images to editor
+  // Transfer batch of images to editor - Show modal for settings
   const transferBatchToEditor = (batch) => {
-    setPendingBatch(batch);
-    setPendingMode('edit');
-    setMode('edit');
+    setPendingTransferData(batch);
+    setTransferType('batch');
+    setTransferModalOpen(true);
+  };
+
+  // Complete transfer with quick import (no settings)
+  const completeQuickTransfer = () => {
+    if (transferType === 'single' && pendingTransferData) {
+      setPendingImage(pendingTransferData.preview);
+      setPendingPrompt(pendingTransferData.prompt || '');
+      setPendingTransferId(Date.now());
+      setPendingSettings(null);
+      setPendingMode('edit');
+      setMode('edit');
+    } else if (transferType === 'batch' && pendingTransferData) {
+      setPendingBatch(pendingTransferData);
+      setPendingSettings(null);
+      setPendingMode('edit');
+      setMode('edit');
+    }
+    setPendingTransferData(null);
+  };
+
+  // Complete transfer with custom settings
+  const completeTransferWithSettings = (settings) => {
+    if (transferType === 'single' && pendingTransferData) {
+      setPendingImage(pendingTransferData.preview);
+      setPendingPrompt(pendingTransferData.prompt || '');
+      setPendingTransferId(Date.now());
+      setPendingSettings(settings);
+      setPendingMode('edit');
+      setMode('edit');
+    } else if (transferType === 'batch' && pendingTransferData) {
+      setPendingBatch(pendingTransferData);
+      setPendingSettings(settings);
+      setPendingMode('edit');
+      setMode('edit');
+    }
+    setPendingTransferData(null);
   };
 
   // Transfer analysis result to video
@@ -810,6 +850,7 @@ export default function App() {
               pendingPrompt={pendingMode === 'edit' ? pendingPrompt : ''}
               pendingTransferId={pendingMode === 'edit' ? pendingTransferId : null}
               pendingBatch={pendingMode === 'edit' ? pendingBatch : null}
+              pendingSettings={pendingMode === 'edit' ? pendingSettings : null}
               onClearPendingImage={clearPendingImage}
             />
           </div>
@@ -927,6 +968,19 @@ export default function App() {
         onSendToEdit={sendToEdit}
         onSendToCombine={sendToCombine}
         onSendToMultiEdit={sendToMultiEdit}
+      />
+
+      {/* Transfer Settings Modal */}
+      <TransferSettingsModal
+        isOpen={transferModalOpen}
+        onClose={() => {
+          setTransferModalOpen(false);
+          setPendingTransferData(null);
+        }}
+        onQuickImport={completeQuickTransfer}
+        onImportWithSettings={completeTransferWithSettings}
+        transferType={transferType}
+        itemCount={transferType === 'batch' && pendingTransferData ? pendingTransferData.length : 1}
       />
 
       {/* API Key Settings Modal */}
